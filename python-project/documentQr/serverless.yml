@@ -1,0 +1,28 @@
+org: juvelineorb4
+app: portaty-professions
+service: documentqr
+
+frameworkVersion: "3"
+provider:
+  name: aws
+  runtime: python3.9
+  apiGateway:
+    restApiId: 6hf00kcyv9
+    restApiRootResourceId: amqt5q6ym5
+  stage: dev
+  region: us-east-1
+  iam:
+    role: "arn:aws:iam::086563672363:role/ROLE_FOR_LAMBDA_DOCUMENTQR"
+
+functions:
+  documentQr:
+    handler: handler.documentQr
+    events:
+      - http:
+          path: documentqr
+          method: get
+          # cors: true
+          # private: true
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:documentqr_layer:1
+      

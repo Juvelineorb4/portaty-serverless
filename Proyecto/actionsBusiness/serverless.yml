@@ -1,0 +1,58 @@
+service: portatyv2-business
+app: portaty-professions
+org: juvelineorb4
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  apiGateway:
+    restApiId: "${self:custom.api_gateway_id.${opt:stage, self:provider.stage}}"
+    restApiRootResourceId: "${self:custom.api_gateway_resourceid.${opt:stage, self:provider.stage}}"
+  environment:
+    "ARN_TABLE_BUSINESS": "${self:custom.arn_table_business.${opt:stage, self:provider.stage}}"
+    "TABLE_BUSINESS_NAME": "${self:custom.table_business_name.${opt:stage, self:provider.stage}}"
+    "S3_BUCKET_NAME": "${self:custom.s3_bucket_name.${opt:stage, self:provider.stage}}"
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "*"
+        - Effect: "Allow"
+          Action:
+            - "dynamodb:*"
+            # - "dynamodb:GetItem"
+            # - "dynamodb:Query"
+          Resource:
+            - ${self:provider.environment.ARN_TABLE_BUSINESS}
+
+custom:
+  arn_table_business:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/Business-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/Business-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  table_business_name:
+    dev: "Business-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "Business-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  api_gateway_id:
+    dev: "x0nk2m8hvi"
+    prod: "z5i64n32d6"
+  api_gateway_resourceid:
+    dev: "eclownm620"
+    prod: "xugqzpp4pb"
+  s3_bucket_name:
+    dev: "s3professions202858-dev"
+    prod: "s3professions143312-prod"
+
+functions:
+  createBusiness:
+    handler: functions/create.handler
+    events:
+      - http:
+          path: business/create
+          method: post
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2

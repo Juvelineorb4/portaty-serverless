@@ -1,0 +1,212 @@
+service: portatyv2-opense
+app: portaty-professions
+org: juvelineorb4
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.10
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  apiGateway:
+    restApiId: "${self:custom.api_gateway_id.${opt:stage, self:provider.stage}}"
+    restApiRootResourceId: "${self:custom.api_gateway_resourceid.${opt:stage, self:provider.stage}}"
+  environment:
+    OPENSE_ENDPONIT: "https://search-portaty-opense-f2pru5qxiz73a53c7fstafplnu.us-east-1.es.amazonaws.com"
+    OPENSE_INDEX: "${self:custom.opense_index.${opt:stage, self:provider.stage}}"
+    OPENSE_ANALYTICS_INDEX: "${self:custom.opense_analytics_index.${opt:stage, self:provider.stage}}"
+    STAGE: ${self:provider.stage}
+    REGION: ${self:provider.region}
+
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "es:*"
+          Resource:
+            - arn:aws:es:us-east-1:086563672363:domain/portaty-opense/*
+custom:
+  api_gateway_id:
+    dev: "x0nk2m8hvi"
+    prod: "z5i64n32d6"
+  api_gateway_resourceid:
+    dev: "eclownm620"
+    prod: "xugqzpp4pb"
+  opense_index:
+    dev: "business_dev"
+    prod: "business"
+  opense_analytics_index:
+    dev: "events_dev"
+    prod: "events"
+
+functions:
+  searchDefault:
+    handler: functions/searchDefault.handler
+    events:
+      - http:
+          path: search/default
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  searchInput:
+    handler: functions/searchInput.handler
+    events:
+      - http:
+          path: search/input
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  search2:
+    handler: functions/search2.handler
+    events:
+      - http:
+          path: search/default2
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  # VIEWS
+  analyticsEventsViewsLast30Days:
+    handler: functions/analytics/views/last30days.handler
+    events:
+      - http:
+          path: analytics/events/views/last-30-days
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsViewsLast12Months:
+    handler: functions/analytics/views/last12moths.handler
+    events:
+      - http:
+          path: analytics/events/views/last-12-months
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsViewsGenderPercentage:
+    handler: functions/analytics/views/genderPercentage.handler
+    events:
+      - http:
+          path: analytics/events/views/gender-percentage
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsViewsCountryPercentage:
+    handler: functions/analytics/views/countryPercentage.handler
+    events:
+      - http:
+          path: analytics/events/views/country-percentage
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsViewsAgePercentage:
+    handler: functions/analytics/views/agePercentage.handler
+    events:
+      - http:
+          path: analytics/events/views/age-percentage
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  # FAVORITES
+  # ADD
+  analyticsEventsFavoritesAddLast30Days:
+    handler: functions/analytics/favorites/addLast30days.handler
+    events:
+      - http:
+          path: analytics/events/favorites/add/last-30-days
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsFavoritesAddLast12Months:
+    handler: functions/analytics/favorites/addLast12Months.handler
+    events:
+      - http:
+          path: analytics/events/favorites/add/last-12-months
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsFavoritesAddAgePer:
+    handler: functions/analytics/favorites/addAgePercentage.handler
+    events:
+      - http:
+          path: analytics/events/favorites/add/age-percentage
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsFavoritesAddGenderPer:
+    handler: functions/analytics/favorites/addGenderPercentage.handler
+    events:
+      - http:
+          path: analytics/events/favorites/add/gender-percentage
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsFavoritesAddCountryPer:
+    handler: functions/analytics/favorites/addCountryPercentage.handler
+    events:
+      - http:
+          path: analytics/events/favorites/add/country-percentage
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  # REMOVE
+  analyticsEventsFavoritesRemoveLast30Days:
+    handler: functions/analytics/favorites/removeLast30days.handler
+    events:
+      - http:
+          path: analytics/events/favorites/remove/last-30-days
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsFavoritesRemoveLast12Months:
+    handler: functions/analytics/favorites/removeLast12Months.handler
+    events:
+      - http:
+          path: analytics/events/favorites/remove/last-12-months
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsFavoritesRemoveAgePer:
+    handler: functions/analytics/favorites/removeAgePercentage.handler
+    events:
+      - http:
+          path: analytics/events/favorites/remove/age-percentage
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsFavoritesRemoveGenderPer:
+    handler: functions/analytics/favorites/removeGenderPercentage.handler
+    events:
+      - http:
+          path: analytics/events/favorites/remove/gender-percentage
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  analyticsEventsFavoritesRemoveCountryPer:
+    handler: functions/analytics/favorites/removeCountryPercentage.handler
+    events:
+      - http:
+          path: analytics/events/favorites/remove/country-percentage
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2

@@ -1,0 +1,140 @@
+service: portaty-firehose
+app: portaty-professions
+org: juvelineorb4
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.10
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  environment:
+    DELIVERY_STREAM_NAME: ${self:custom.delivery_stream_name.${opt:stage, self:provider.stage}}
+    INDEX_OPENSE: ${self:custom.index_opense_firehose.${opt:stage, self:provider.stage}}
+    S3_NAME: ${self:custom.s3_name.${opt:stage, self:provider.stage}}
+    S3_PREFIX: ${self:custom.s3_prefix.${opt:stage, self:provider.stage}}
+    S3_PREFIX_ERROR: ${self:custom.s3_prefix_error.${opt:stage, self:provider.stage}}
+    ROLE_STREAM_NAME: ${self:custom.role_stream_name.${opt:stage, self:provider.stage}}
+    POLICY_STREAM_NAME: ${self:custom.policy_stream_name.${opt:stage, self:provider.stage}}
+functions:
+  transform:
+    handler: transform.handler
+    timeout: 60
+resources:
+  Resources:
+    DeliveryStreamRolePortatyAnalytics:
+      Type: "AWS::IAM::Role"
+      Properties:
+        RoleName: ${self:provider.environment.ROLE_STREAM_NAME}
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: "firehose.amazonaws.com"
+              Action: "sts:AssumeRole"
+        Policies:
+          - PolicyName: ${self:provider.environment.POLICY_STREAM_NAME}
+            PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - "s3:PutObject"
+                    - "s3:GetObject"
+                    - "s3:ListBucket"
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - "es:*"
+                  Resource:
+                    - "arn:aws:es:us-east-1:086563672363:domain/portaty-opense"
+                    - "arn:aws:es:us-east-1:086563672363:domain/portaty-opense/*"
+                - Effect: Allow
+                  Action:
+                    - "lambda:InvokeFunction"
+                  Resource:
+                    - Fn::GetAtt:
+                        - TransformLambdaFunction
+                        - Arn
+    BucketFirehose:
+      Type: "AWS::S3::Bucket"
+      Properties:
+        BucketName: ${self:provider.environment.S3_NAME}
+        AccessControl: Private
+        PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+        VersioningConfiguration:
+          Status: Suspended
+        BucketEncryption:
+          ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                SSEAlgorithm: AES256
+    DeliveryStreamPortatyAnalytics:
+      Type: "AWS::KinesisFirehose::DeliveryStream"
+      Properties:
+        DeliveryStreamName: ${self:provider.environment.DELIVERY_STREAM_NAME}
+        DeliveryStreamType: "DirectPut"
+        AmazonopensearchserviceDestinationConfiguration:
+          DomainARN: "arn:aws:es:us-east-1:086563672363:domain/portaty-opense"
+          IndexName: ${self:provider.environment.INDEX_OPENSE}
+          IndexRotationPeriod: "NoRotation"
+          RetryOptions:
+            DurationInSeconds: 300
+          RoleARN:
+            Fn::GetAtt:
+              - DeliveryStreamRolePortatyAnalytics
+              - Arn
+          S3BackupMode: "AllDocuments"
+          S3Configuration:
+            BucketARN:
+              Fn::GetAtt:
+                - BucketFirehose
+                - Arn
+            BufferingHints:
+              IntervalInSeconds: 60
+              SizeInMBs: 64
+            CompressionFormat: "UNCOMPRESSED"
+            Prefix: ${self:provider.environment.S3_PREFIX}
+            ErrorOutputPrefix: ${self:provider.environment.S3_PREFIX_ERROR}
+            RoleARN:
+              Fn::GetAtt:
+                - DeliveryStreamRolePortatyAnalytics
+                - Arn
+          ProcessingConfiguration:
+            Enabled: true
+            Processors:
+              - Type: Lambda
+                Parameters:
+                  - ParameterName: LambdaArn
+                    ParameterValue:
+                      Fn::GetAtt:
+                        - TransformLambdaFunction
+                        - Arn
+
+custom:
+  delivery_stream_name:
+    dev: "portaty-dev-stream"
+    prod: "portaty-prod-stream"
+  index_opense_firehose:
+    dev: "events_dev"
+    prod: "events"
+  s3_name:
+    dev: "portaty-dev-analytics-data"
+    prod: "portaty-prod-analytics-data"
+  s3_prefix:
+    dev: "events_dev/"
+    prod: "events/"
+  s3_prefix_error:
+    dev: "erros_dev/"
+    prod: "erros/"
+  role_stream_name:
+    dev: "PORTATY_DEV_DELIVERY_STREAM_ROLE_ANALYTICS"
+    prod: "PORTATY_PROD_DELIVERY_STREAM_ROLE_ANALYTICS"
+  policy_stream_name:
+    dev: "PORTATY_DEV_POLICY_STREAM_ANALYTICS"
+    prod: "PORTATY_PROD_POLICY_STREAM_ANALYTICS"

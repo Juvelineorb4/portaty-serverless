@@ -1,0 +1,26 @@
+org: juvelineorb4
+app: portaty-professions
+service: s3-thumbnailGenerator
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: dev
+  region: us-east-1
+  iam:
+    role: "arn:aws:iam::086563672363:role/ROLE_FOR_LAMBDA_THUMBNAIL"
+functions:
+  send:
+    handler: handler.hello
+    events:
+      - s3:
+          bucket: s3professions202858-dev
+          event: s3:ObjectCreated:*
+          existing: true
+          forceDeploy: true
+          rules:
+            - prefix: protected/
+            - suffix: .jpg
+          

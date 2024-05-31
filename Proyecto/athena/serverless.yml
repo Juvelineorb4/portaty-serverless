@@ -1,0 +1,61 @@
+service: portatyv2-athena
+app: portaty-professions
+org: juvelineorb4
+
+#
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  apiGateway:
+    restApiId: "${self:custom.api_gateway_id.${opt:stage, self:provider.stage}}"
+    restApiRootResourceId: "${self:custom.api_gateway_resourceid.${opt:stage, self:provider.stage}}"
+  environment:
+    STAGE: ${self:provider.stage}
+    REGION: ${self:provider.region}
+    S3_OUTPUT: "${self:custom.s3_output_path.${opt:stage, self:provider.stage}}"
+    GLUE_DATABASE: "${self:custom.glue_database.${opt:stage, self:provider.stage}}"
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "athena:GetQueryResults"
+            - "athena:GetQueryExecution"
+            - "athena:StartQueryExecution"
+            - "glue:GetTable"
+            - "s3:*"
+            - "glue:GetPartitions"
+            - "glue:GetPartitions"
+          Resource: "*"
+
+custom:
+  api_gateway_id:
+    dev: "x0nk2m8hvi"
+    prod: "z5i64n32d6"
+  api_gateway_resourceid:
+    dev: "eclownm620"
+    prod: "xugqzpp4pb"
+  s3_output_path:
+    dev: ""
+    prod: "s3://portaty-athena/"
+  glue_database:
+    dev: ""
+    prod: "portaty-app-glue-database"
+
+functions:
+  example:
+    handler: functions/example.handler
+    events:
+      - http:
+          path: athena/example
+          method: get
+  example2:
+    handler: functions/example2.handler
+    events:
+      - http:
+          path: athena/example2
+          method: get

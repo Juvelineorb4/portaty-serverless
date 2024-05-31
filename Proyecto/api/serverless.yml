@@ -1,0 +1,33 @@
+service: portaty-api
+app: portaty-professions
+org: juvelineorb4
+frameworkVersion: "3"
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  apiGateway:
+    restApiId: "${self:custom.api_gateway_id.${opt:stage, self:provider.stage}}"
+    restApiRootResourceId: "${self:custom.api_gateway_resourceid.${opt:stage, self:provider.stage}}"
+functions:
+  sectors:
+    handler: functions/sectorsAndActivities.handler
+    events:
+      - http:
+          path: api/sectorsandactivities
+          method: get
+
+  complaints:
+    handler: functions/complaints.handler
+    events:
+      - http:
+          path: api/complaints
+          method: get
+custom:
+  api_gateway_id:
+    dev: "x0nk2m8hvi"
+    prod: "z5i64n32d6"
+  api_gateway_resourceid:
+    dev: "eclownm620"
+    prod: "xugqzpp4pb"

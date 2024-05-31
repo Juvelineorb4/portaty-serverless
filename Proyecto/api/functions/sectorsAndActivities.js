@@ -1,0 +1,23 @@
+'use strict';
+let sectorsAndActivities = [
+    { name: "Construcción y Mantenimiento", activities: ["Plomería", "Electricidad", "Albanileria", "Pintura", "Carpintería", "Herrería", "Jardinería", "Limpieza", "Techado", "Calefacción y refrigeración", "Instalación de ventanas", "Pavimentación", "Impermeabilización", "Instalación de puertas", "Remodelación de cocinas", "Remodelación de baños", "Instalación de pisos", "Trabajos de mampostería", "Instalación de cercas", "Servicios de inspección de edificios"] },
+    { name: "Salud", activities: ["Farmacia", "Medicina", "Odontología", "Fisioterapia", "Psicología", "Nutrición", "Oftalmología", "Dermatología", "Cardiología", "Ginecología", "Pediatría", "Geriatría", "Ortopedia", "Quiropráctica", "Acupuntura", "Homeopatía", "Servicios de enfermería", "Laboratorios de análisis clínicos", "Hospitales", "Clínicas de rehabilitación"] },
+    { name: "Legal y Financiero", activities: ["Legal", "Contabilidad", "Seguros", "Banco", "Asesoría fiscal", "Auditoría", "Gestión de inversiones", "Préstamos hipotecarios", "Préstamos personales", "Asesoría de jubilación", "Planificación financiera", "Asesoría de seguros", "Asesoría de inversiones", "Servicios de notario", "Asesoría de patentes", "Asesoría de marcas registradas", "Asesoría de derechos de autor", "Asesoría de inmigración", "Asesoría de divorcios", "Asesoría de bienes raíces"] },
+    { name: "Ingeniería y Tecnología", activities: ["Ingenieria", "Servicio Tecnico", "Mecanica", "Desarrollo de software", "Servicios de TI", "Consultoría de TI", "Diseño web", "Marketing digital", "SEO", "Redes sociales", "Ciberseguridad", "Inteligencia artificial", "Realidad virtual", "Realidad aumentada", "IoT (Internet de las cosas)", "Blockchain", "Robótica", "Energías renovables", "Telecomunicaciones", "Electrónica de consumo"] },
+    { name: "Comercio", activities: ["Artesanía", "Juguetería", "Tienda", "Zapaterias", "Ferretería", "Concesionario", "Supermercado", "Miniabasto", "Inmobiliaria", "Ropa", "Joyería", "Librería", "Mueblería", "Electrónica", "Deportes", "Belleza", "Mascotas", "Música", "Arte", "Antigüedades"] },
+    { name: "Alimentación", activities: ["Restaurant", "Pizzerias", "Heladeria", "Panaderia", "Fruteria", "Carnicería", "Pescadería", "Delicatessen", "Cafetería", "Bar", "Cervecería", "Vinoteca", "Mercado de agricultores", "Catering", "Comida a domicilio", "Comida vegana"] },
+    { name: "Transporte", activities: ["Estacionamiento", "Transporte de Carga", "Transporte de Pasajeros", "Autolavado", "Alquiler de coches", "Alquiler de bicicletas", "Alquiler de scooters", "Alquiler de furgonetas", "Alquiler de camiones", "Alquiler de autobuses", "Alquiler de barcos", "Alquiler de aviones", "Alquiler de helicópteros", "Alquiler de limusinas"] },
+    { name: "Hospedaje y Vivienda", activities: ["Motel", "Hotel", "Vivienda", "Albergue", "Bed and Breakfast", "Alquiler de vacaciones", "Alquiler a largo plazo", "Alquiler de apartamentos", "Alquiler de casas", "Alquiler de villas", "Alquiler de cabañas", "Alquiler de chalets", "Alquiler de bungalows", "Alquiler de caravanas", "Alquiler de autocaravanas", "Alquiler de yates", "Alquiler de casas flotantes", "Alquiler de casas en árboles", "Alquiler de iglús", "Alquiler de cuevas"] },
+    { name: "Deporte y Recreación", activities: ["Gimnasio", "Club / Academia deportiva", "Yoga", "Pilates", "Crossfit", "Artes marciales", "Boxeo", "Natación", "Escalada", "Senderismo", "Ciclismo", "Running", "Fútbol", "Baloncesto", "Tenis", "Golf", "Esquí", "Snowboard", "Surf", "Buceo"] },
+    { name: "Educación", activities: ["Universidad", "Academias", "Profesor", "Tutoría", "Idiomas", "Música", "Danza", "Arte", "Cocina", "Fotografía", "Programación", "Diseño gráfico", "Marketing", "Emprendimiento", "Finanzas", "Salud y bienestar", "Meditación", "Yoga", "Fitness", "Nutrición"] },
+    { name: "Evaluación y Consultoría", activities: ["Avaluos", "Administracion de Negocios", "Consultoría de gestión", "Consultoría estratégica", "Consultoría de recursos humanos", "Consultoría de marketing", "Consultoría de ventas", "Consultoría de operaciones", "Consultoría de TI", "Consultoría de finanzas", "Consultoría de riesgos", "Consultoría de cumplimiento", "Consultoría de sostenibilidad", "Consultoría de diversidad e inclusión", "Consultoría de cambio organizacional", "Consultoría de formación y desarrollo", "Consultoría de coaching ejecutivo", "Consultoría de diseño organizacional", "Consultoría de mejora de procesos", "Consultoría de análisis de datos"] }
+];
+
+
+module.exports.handler = async () => {
+    return {
+        statusCode: 200,
+        body: JSON.stringify(sectorsAndActivities),
+    };
+};
+
