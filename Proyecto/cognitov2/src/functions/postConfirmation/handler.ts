@@ -12,19 +12,34 @@ const table_dynamodb_dev = process.env.TABLE_USER;
 const user_pool_id = process.env.USER_POOL_ID;
 
 const createTableUser = async (request) => {
+  const gender = request?.userAttributes["custom:gender"]
+    ? request?.userAttributes["custom:gender"]
+    : "";
+  const notificationToken = request?.userAttributes["custom:notificationToken"]
+    ? request?.userAttributes["custom:notificationToken"]
+    : "";
+  const name = request?.userAttributes?.name
+    ? request?.userAttributes?.name
+    : "";
+  const lastName = request?.userAttributes["custom:lastName"]
+    ? request?.userAttributes["custom:lastName"]
+    : "";
+  const email = request?.userAttributes?.email
+    ? request?.userAttributes?.email
+    : "";
   const ID = uuidv4();
   const fields = {
     id: { S: ID },
     cognitoID: { S: request.userAttributes.sub },
     owner: { S: request.userAttributes.sub },
-    name: { S: request.userAttributes.name },
-    lastName: { S: request.userAttributes["custom:lastName"] },
-    email: { S: request.userAttributes.email },
-    gender: { S: request.userAttributes["custom:gender"] },
+    name: { S: name },
+    lastName: { S: lastName },
+    email: { S: email },
+    gender: { S: gender },
     notificationToken: {
       L: [
         {
-          S: request.userAttributes["custom:notificationToken"],
+          S: notificationToken,
         },
       ],
     },

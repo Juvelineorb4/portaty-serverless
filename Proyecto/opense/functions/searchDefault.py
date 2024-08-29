@@ -95,7 +95,7 @@ def handler(event, context):
         sourceItem = item.get("_source")
         imagesSource = sourceItem.get("images")
         thumbnail = sourceItem.get("thumbnail", imagesSource[0])
-        print("QUE OBTENEDRE DE YHUMBNAIL ", thumbnail)
+        # print("QUE OBTENEDRE DE YHUMBNAIL ", thumbnail)
         objectoArray = {
             "id": item["_source"]["id"],
             "distance": distanceAprox,
@@ -103,13 +103,14 @@ def handler(event, context):
             "name": item["_source"]["name"],
             "thumbnail": item["_source"]["thumbnail"],
             "images": item["_source"]["images"],
+            "coordinates":item["_source"]["coordinates"]
         }
         newArray.append(objectoArray)
     print("ARREGLO RESULTANTE", newArray)
 
     body = json.dumps({
         "items": newArray,
-        "total": len(newArray),
+        "total": total,
         "limit": len(newArray)
     })
     # Create the response and add some extra content to support CORS

@@ -107,8 +107,8 @@ def handler(event, context):
     total = objecto["hits"]["total"]["value"]
     # recorremos arreglo
     for item in objecto["hits"]["hits"]:
-        if item["_score"] < 0.1:
-            continue
+        # if item["_score"] < 0.1:
+        #     continue
         distanceAprox = distance_two_points(
             lat,
             lon,
@@ -122,6 +122,7 @@ def handler(event, context):
             "name": item["_source"]["name"],
             "thumbnail": item["_source"]["thumbnail"],
             "images": item["_source"]["images"],
+           
         }
         newArray.append(objectoArray)
     print("ARREGLO RESULTANTE", newArray)

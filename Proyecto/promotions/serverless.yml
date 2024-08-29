@@ -1,0 +1,327 @@
+service: portaty-promotions
+app: portaty-professions
+org: juvelineorb4
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  apiGateway:
+    restApiId: "${self:custom.api_gateway_id.${opt:stage, self:provider.stage}}"
+    restApiRootResourceId: "${self:custom.api_gateway_resourceid.${opt:stage, self:provider.stage}}"
+  environment:
+    "APPSYNC_URL": "${self:custom.appsync_url.${opt:stage, self:provider.stage}}"
+    "APPSYNC_API_KEY": "${self:custom.appsync_key.${opt:stage, self:provider.stage}}"
+    "QUEUE_PROMOTION_INREVIEW_NAME": "${self:custom.queue_promotion_inreview_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_DLQ_PROMOTION_INREVIEW_NAME": "${self:custom.queue_dlq_promotion_inreview_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_PROMOTION_INREVIEW_URL":
+      Fn::GetAtt: [QueuePromotionInReview, QueueUrl]
+    "QUEUE_PROMOTION_PUBLISHED_NAME": "${self:custom.queue_promotion_published_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_DLQ_PROMOTION_PUBLISHED_NAME": "${self:custom.queue_dlq_promotion_published_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_PROMOTION_PUBLISDHED_URL":
+      Fn::GetAtt: [QueuePromotionPublished, QueueUrl]
+    "TABLE_BUSINESS_PROMOTION_NAME": "${self:custom.table_business_promotion_name.${opt:stage, self:provider.stage}}"
+    "ARN_TABLE_BUSINESS_PROMOTION": "${self:custom.arn_table_business_promotion.${opt:stage, self:provider.stage}}"
+    "TABLE_BUSINESS_PROMOTION_STREAM": "${self:custom.table_business_promotion_stream.${opt:stage, self:provider.stage}}"
+    "TOPIC_BUSINESS_PROMOTION_NAME": "${self:custom.topic_business_promotion_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_BUSINESS_PROMOTION_NAME": "${self:custom.queue_business_promotion_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_DLQ_BUSINESS_PROMOTION_NAME": "${self:custom.queue_dlq_business_promotion_name.${opt:stage, self:provider.stage}}"
+    "TOPIC_BUSINESS_PROMOTION_ARN":
+      Fn::GetAtt: [TopicBusinessPromotion, TopicArn]
+    "OPENSE_BUSINESS_INDEX": "${self:custom.opense_business_index.${opt:stage, self:provider.stage}}"
+    OPENSE_ENDPONIT: "https://search-portaty-opense-f2pru5qxiz73a53c7fstafplnu.us-east-1.es.amazonaws.com"
+    "ARN_TABLE_BUSINESS": "${self:custom.arn_table_business.${opt:stage, self:provider.stage}}"
+    "TABLE_BUSINESS_NAME": "${self:custom.table_business_name.${opt:stage, self:provider.stage}}"
+    "OPENSE_USERS_INDEX": "${self:custom.opense_user_index.${opt:stage, self:provider.stage}}"
+    "QUEUE_USERS_CHANGE_LOCATION_NAME": ${cf:portatyv2-${self:provider.stage}.QueueUsersChangeLocation}
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "*"
+        - Effect: "Allow"
+          Action:
+            - "dynamodb:*"
+            # - "dynamodb:GetItem"
+            # - "dynamodb:Query"
+          Resource:
+            - ${self:provider.environment.ARN_TABLE_BUSINESS}
+            - ${self:provider.environment.ARN_TABLE_BUSINESS}/*
+            - ${self:provider.environment.ARN_TABLE_BUSINESS_PROMOTION}
+            - ${self:provider.environment.ARN_TABLE_BUSINESS_PROMOTION}/*
+        - Effect: "Allow"
+          Action:
+            - "sqs:SendMessage"
+          Resource:
+            - Fn::GetAtt: [QueuePromotionInReview, Arn] # ARN del SQS QueuePromotionUpdate
+            - Fn::GetAtt: [QueuePromotionPublished, Arn] # ARN del SQS QueuePromotionUpdate
+        - Effect: "Allow"
+          Action:
+            - "sns:*"
+          Resource:
+            - Ref: TopicBusinessPromotion
+        - Effect: "Allow"
+          Action:
+            - "es:*"
+          Resource:
+            - arn:aws:es:us-east-1:086563672363:domain/portaty-opense/*
+custom:
+  api_gateway_id:
+    dev: "x0nk2m8hvi"
+    prod: "z5i64n32d6"
+  api_gateway_resourceid:
+    dev: "eclownm620"
+    prod: "xugqzpp4pb"
+  appsync_url:
+    dev: "https://vkrtsagkivgqjgzbnhekkyusfm.appsync-api.us-east-1.amazonaws.com/graphql"
+    prod: "https://cq6hw4g7arg4jitnxitbhihhpu.appsync-api.us-east-1.amazonaws.com/graphql"
+  appsync_key:
+    dev: "da2-2ardlryjrvdl3cqdyrtz2ppq5i"
+    prod: "da2-x4g3fxoha5eeroeswkza7fznny"
+
+  queue_promotion_inreview_name:
+    dev: "QueuePromotionInReviewdev"
+    prod: "QuueuePromotionInReview"
+  queue_dlq_promotion_inreview_name:
+    dev: "QueuePromotionInReviewDLQdev"
+    prod: "QueuePromotionInReviewDLQ"
+  queue_promotion_published_name:
+    dev: "QuueuePromotionPublisheddev"
+    prod: "QuueuePromotionPublished"
+  queue_dlq_promotion_published_name:
+    dev: "QueuePromotionPublishedDLQdev"
+    prod: "QueuePromotionPublishedDLQ"
+  table_business_promotion_name:
+    dev: "BusinessPromotion-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: ""
+  arn_table_business_promotion:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/BusinessPromotion-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: ""
+  table_business_promotion_stream:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/BusinessPromotion-ehid2xtqobf75gakml3qgdj45m-dev/stream/2024-07-19T12:49:39.375"
+    prod: ""
+  topic_business_promotion_name:
+    dev: "TopicBusinessPromotiondev"
+    prod: "TopicBusinessPromotion"
+  queue_business_promotion_name:
+    dev: "QueueBusinessPromotiondev"
+    prod: "QueuePromotion"
+  queue_dlq_business_promotion_name:
+    dev: "QueueBusinessPromotionDLQdev"
+    prod: "QueueBusinessPromotionDLQ"
+  opense_business_index:
+    dev: "business_dev"
+    prod: "business"
+  arn_table_business:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/Business-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/Business-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  table_business_name:
+    dev: "Business-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "Business-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  opense_user_index:
+    dev: "users_dev"
+    prod: "users"
+functions:
+  userFavoritesPromotions:
+    handler: functions/userFavoritesPromotions.handler
+    events:
+      - http:
+          path: getUserFavoritesPromotions
+          method: get
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  listPromotions:
+    handler: functions/listPromotions.handler
+    events:
+      - http:
+          path: listPromotions
+          method: get
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  schedulePromotionInReview:
+    handler: functions/schedulePromotionInReview.handler
+    events:
+      - schedule:
+          rate: cron(0 0 * * ? *)
+          enabled: true
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  promotionInReview:
+    handler: functions/updatePromotionInReview.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [QueuePromotionInReview, Arn]
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  schedulePromotionPublished:
+    handler: functions/schedulePromotionPublished.handler
+    events:
+      - schedule:
+          rate: cron(0 0 * * ? *)
+          enabled: true
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  promotionPublished:
+    handler: functions/updatePromotionPublished.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [QueuePromotionPublished, Arn]
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  triggerBusinessPromotion:
+    handler: functions/triggerBusinessPromotionDB.handler
+    events:
+      - stream:
+          type: dynamodb
+          arn: ${self:provider.environment.TABLE_BUSINESS_PROMOTION_STREAM}
+  sendNotificationByDistance:
+    handler: functions/sendNotificationByDistance.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [QueueBusinessPromotion, Arn]
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  sendNotificationUsersChangeLocation:
+    handler: functions/sendNotificationUsersChangeLocation.handler
+    events:
+      - sqs:
+          arn: "${self:provider.environment.QUEUE_USERS_CHANGE_LOCATION_NAME}"
+
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+    timeout: 30
+resources:
+  Resources:
+    # schedule update promotion
+    # SQS
+    # INREVIEW
+    QueuePromotionInReview:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_PROMOTION_INREVIEW_NAME}"
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - QueuePromotionInReviewDLQ
+              - Arn
+          maxReceiveCount: 3
+    # DLQ
+    QueuePromotionInReviewDLQ:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_DLQ_PROMOTION_INREVIEW_NAME}"
+
+    # PUBLISHED
+    QueuePromotionPublished:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_PROMOTION_PUBLISHED_NAME}"
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - QueuePromotionPublishedDLQ
+              - Arn
+          maxReceiveCount: 3
+    # DLQ
+    QueuePromotionPublishedDLQ:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_DLQ_PROMOTION_PUBLISHED_NAME}"
+
+    # TRIGGER A SEND NOTIFICATIONS
+    # SNS
+    TopicBusinessPromotion:
+      Type: "AWS::SNS::Topic"
+      Properties:
+        TopicName: "${self:provider.environment.TOPIC_BUSINESS_PROMOTION_NAME}"
+    # SQS
+    QueueBusinessPromotion:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_BUSINESS_PROMOTION_NAME}"
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - QueueBusinessPromotionDLQ
+              - Arn
+          maxReceiveCount: 3
+    # DLQ
+    QueueBusinessPromotionDLQ:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_DLQ_BUSINESS_PROMOTION_NAME}"
+
+      # # SUBSCRIOTION SQS
+    SQSOpenseSyncSubs:
+      Type: "AWS::SNS::Subscription"
+      Properties:
+        TopicArn:
+          Fn::Join:
+            - ":"
+            - - "arn:aws:sns"
+              - Ref: "AWS::Region"
+              - Ref: "AWS::AccountId"
+              - "${self:provider.environment.TOPIC_BUSINESS_PROMOTION_NAME}"
+        Endpoint:
+          Fn::GetAtt:
+            - QueueBusinessPromotion
+            - Arn
+        Protocol: sqs
+        RawMessageDelivery: true
+
+    # # Policy SNS
+    # # Policy SNS
+    TopicToSQSOpenseSyncPolicy:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: "allow-sns-messages"
+              Effect: "Allow"
+              Principal:
+                Service:
+                  - "sns.amazonaws.com"
+              Resource:
+                Fn::GetAtt:
+                  - QueueBusinessPromotion
+                  - Arn
+              Action: "SQS:SendMessage"
+              Condition:
+                ArnEquals:
+                  "aws:SourceArn":
+                    Ref: TopicBusinessPromotion
+        Queues:
+          - "${self:provider.environment.QUEUE_BUSINESS_PROMOTION_NAME}"
+  Outputs:
+    QueueBusinessPromotionArn:
+      Value:
+        Fn::GetAtt:
+          - QueueBusinessPromotion
+          - Arn
+    QueueBusinessPromotionUrl:
+      Value:
+        Ref: QueueBusinessPromotion
+    QueueBusinessPromotionName:
+      Value:
+        Fn::GetAtt:
+          - QueueBusinessPromotion
+          - QueueName
+    TopicBusinessPromotionArn:
+      Value:
+        Ref: TopicBusinessPromotion

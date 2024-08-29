@@ -8,14 +8,12 @@ from requests_aws4auth import AWS4Auth
 
 
 
-
 # Variables de openSeach 
 OPENSEARCH_ENDPOINT = os.environ.get("OPENSEARCH_ENDPOINT")
 OPENSEARCH_REGION = os.environ.get("OPENSEARCH_REGION")
-OPENSE_INDEX = os.environ.get("OPENSE_INDEX")
-DOC_TYPE = '_doc'
+OPENSE_INDEX = os.environ.get("OPENSE_USERS_INDEX")
 
-region = os.environ.get("OPENSEARCH_REGION")
+region = os.environ.get("AWS_REGION")
 service = 'es' # servicio de opensearch
 credentials = boto3.Session().get_credentials() # credenciales de boto3 asociadas a esta session
 # Para firmar las solicitudes https con la firma AWS Signature Version 4. Esta firma es necesaria para autenticar las solicitudes a servicios como OpenSearch.
@@ -52,12 +50,14 @@ def compute_doc_index(keys_raw, deserializer, formatIndex=False):
     return '|'.join(map(str,index))
 
 
+def get_message(data):
+
+    body = data.get("body")
+    jsonBody = json.loads(body)
+    return jsonBody
 
 
 
-# obtener nombre de la tabla desde el arn
-def get_table_name_from_arn(arn):
-    return arn.split(':')[5].split('/')[1]
 
 def post_to_opensearch(payload):
     # "Publicar datos en el clúster OpenSearch con retroceso exponencial"
@@ -79,43 +79,23 @@ def post_to_opensearch(payload):
       
     else:
         print(f'Error al enviar datos masivos: {response.text}')
-      
-
-    
-
-
 
 def handler(event, context):
-    print("EVENTO:", event)
-    response = {
-        "statusCode": 200,
-        "body": json.dumps("Messaged Send")
-    }
-
-   
     records = event.get("Records")
+    print("Records: ", records)
     ddb_deserializer = StreamTypeDeserializer()
     cnt_insert = cnt_modify = cnt_remove = 0
     opensearch_actions = []  # Items to be added/updated/removed from OpenSearch 
-    print("Records: ", records)
-   
+    
+    
     for record in records:
         message = get_message(record)
         print("MENSAJE: ", message)
         # Preguntamos si es un evento de tipo aws:dynamodb
         if message.get("eventSource") == "aws:dynamodb":
             ddb = message["dynamodb"]
-            # Obtenemos el nombre de la tabla 
-            # ddb_table_name = get_table_name_from_arn(message['eventSourceARN'])
-
-            # Compute DynamoDB table, type and index for item
-            # doc_table = ddb_table_name.lower()
-            # doc_type = DOC_TYPE
-            # doc_table_parts = doc_table.split('-')
-            # Obtenemos el nombre del index que usaremos en openSearch
-            # doc_opensearch_index_name = doc_table_parts[0] if len(doc_table_parts) > 0  else doc_table
             doc_opensearch_index_name = OPENSE_INDEX
-            # Tipo de evento en la tabla de dynamodb
+             # Tipo de evento en la tabla de dynamodb
             event_name = message.get("eventName").upper()
             # verificamos si es INSERT O MODIFY
             is_ddb_insert_or_update = (event_name == 'INSERT') or (event_name == 'MODIFY')
@@ -123,25 +103,27 @@ def handler(event, context):
             is_ddb_delete = event_name == 'REMOVE'
             # Si es INSERT o MOFIFY obtenemos el New Image si no es el OldImage
             image_name = 'NewImage' if is_ddb_insert_or_update else 'OldImage'
-            
             if image_name not in ddb:
                 print('No se puede procesar la secuencia si no contiene', image_name)
                 continue
             # Deserialize DynamoDB type to Python types
             doc_fields = ddb_deserializer.deserialize({'M': ddb[image_name]})
+            # Resultado de la deserializacion de tipo dynamodb
             print("DOC FIELDS: ", doc_fields)
-            # del doc_fields["images"]
-            # del doc_fields["tags"]
-            print("ENUMERATE TAGS: ",enumerate(doc_fields['tags']) )
-            for i, item in enumerate(doc_fields['tags']):
-                # Reemplazar el carácter de nueva línea con su representación escapada
-                texto = item.replace('\n', '\\n')
-                print("ITEM: ", texto)
-                objeto_json = json.loads(texto)
-                print("objeto_json: ", objeto_json)
-                doc_fields['tags'][i] = objeto_json
-                print("doc_fields['tags'][i] ", doc_fields['tags'][i])
-                # Update counters
+            user_id = doc_fields.get("id", None)
+            last_location = doc_fields.get("lastLocation", None)
+            notification_token = doc_fields.get("notificationToken", None)
+            email = doc_fields.get("email", None)
+            owner = doc_fields.get("owner", None)
+            doc_fields = {
+                "id": user_id,
+                "email": email,
+                "lastLocation":last_location,
+                "notificationToken": notification_token,
+                "owner": owner
+            }
+            print("RESULTADO FINAL: ", doc_fields)
+            
             if event_name == 'INSERT':
                 cnt_insert += 1
             elif event_name == 'MODIFY':
@@ -150,13 +132,15 @@ def handler(event, context):
                 cnt_remove += 1
             else:
                 print('No Soportado event_name:', event_name)
-
+                
             if ('Keys' in ddb):
                 doc_id = compute_doc_index(ddb['Keys'], ddb_deserializer)
             else:
                 print('No se pueden encontrar Keys en el registro ddb')
-        
+                
+                
             print(f"Estado Dynamodb por ejecutar {event_name}, id:{doc_id}")
+            
             # SI DynamoDB INSERT or MODIFY, enviar el 'index' a OpenSearch
             if is_ddb_insert_or_update:
               
@@ -179,21 +163,12 @@ def handler(event, context):
                                     '_id': doc_id}}
                 # linia de accion con 'delete' directiva
                 opensearch_actions.append(action)
-
-    # Preparar toda la carga masiva para openSearch
+    
     opensearch_payload = '\n'.join([json.dumps(doc) for doc in opensearch_actions]) + '\n'
     print("OPENSEARCH PAYLOAD:", opensearch_payload)
     post_to_opensearch(opensearch_payload)  # Post to OpenSearch with exponential backoff
     
-    response = {
-        "statusCode": 200,
-        "body": json.dumps("Messaged Send")
-    }
+    
+    print("SINCRONIZACION CON OPENSEARCH COMPLETA")
+    return "SINCRONIZACION CON OPENSEARCH COMPLETA"
 
-    return response
-
-def get_message(data):
-
-    body = data.get("body")
-    jsonBody = json.loads(body)
-    return jsonBody

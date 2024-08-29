@@ -1,0 +1,68 @@
+service: portaty-dahsboard
+app: portaty-professions
+org: juvelineorb4
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  apiGateway:
+    restApiId: "${self:custom.api_gateway_id.${opt:stage, self:provider.stage}}"
+    restApiRootResourceId: "${self:custom.api_gateway_resourceid.${opt:stage, self:provider.stage}}"
+  environment:
+    STAGE: "${self:provider.stage}"
+    COGNITO: "${self:custom.cognito.${opt:stage, self:provider.stage}}"
+    ARN_COGNITO: "${self:custom.arn_cognito.${opt:stage, self:provider.stage}}"
+    TABLE_USER: "${self:custom.table_user.${opt:stage, self:provider.stage}}"
+    USER_POOL_ID: "${self:custom.cognito_user_pool_id.${opt:stage, self:provider.stage}}"
+    ARN_TABLE_USER: "${self:custom.arn_table_user.${opt:stage, self:provider.stage}}"
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "dynamodb:GetItem"
+          Resource:
+            - "${self:provider.environment.ARN_TABLE_USER}"
+        - Effect: "Allow"
+          Action:
+            - "cognito-idp:AdminUpdateUserAttributes"
+            - "cognito-idp:AdminGetUser"
+            - "cognito-idp:ConfirmSignUp"
+            - "cognito-idp:ResendConfirmationCode"
+            - "cognito-idp:ListUsers"
+          Resource:
+            - "${self:provider.environment.ARN_COGNITO}"
+functions:
+  getUsers:
+    handler: functions/getUsers.handler
+    events:
+      - http:
+          path: admin/getUsers
+          method: get
+          cors: false
+
+custom:
+  table_user:
+    dev: "Users-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "Users-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  cognito:
+    dev: "professions-dev"
+    prod: "professions-prod"
+  arn_cognito:
+    dev: "arn:aws:cognito-idp:us-east-1:086563672363:userpool/us-east-1_Mr2xjl1Hg"
+    prod: "arn:aws:cognito-idp:us-east-1:086563672363:userpool/us-east-1_aiv5jx4kp"
+  cognito_user_pool_id:
+    dev: "us-east-1_Mr2xjl1Hg"
+    prod: "us-east-1_aiv5jx4kp"
+  arn_table_user:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/Users-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/Users-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  api_gateway_id:
+    dev: "x0nk2m8hvi"
+    prod: "z5i64n32d6"
+  api_gateway_resourceid:
+    dev: "eclownm620"
+    prod: "xugqzpp4pb"

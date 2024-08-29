@@ -137,7 +137,7 @@ def getDateIso():
     return fechaIso8601
 
 
-def thumbnail(event, context):
+def handler(event, context):
     body = json.loads(event['body'])
     print("BODY:", body)
     try:

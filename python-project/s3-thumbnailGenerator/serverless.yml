@@ -23,4 +23,3 @@ functions:
           rules:
             - prefix: protected/
             - suffix: .jpg
-          

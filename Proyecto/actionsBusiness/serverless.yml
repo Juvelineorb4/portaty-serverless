@@ -15,6 +15,20 @@ provider:
     "ARN_TABLE_BUSINESS": "${self:custom.arn_table_business.${opt:stage, self:provider.stage}}"
     "TABLE_BUSINESS_NAME": "${self:custom.table_business_name.${opt:stage, self:provider.stage}}"
     "S3_BUCKET_NAME": "${self:custom.s3_bucket_name.${opt:stage, self:provider.stage}}"
+    "TABLE_BUSINESS_COMMENTS_NAME": "${self:custom.table_business_comments_name.${opt:stage, self:provider.stage}}"
+    "ARN_TABLE_BUSINESS_COMMENTS": "${self:custom.arn_table_business_comments.${opt:stage, self:provider.stage}}"
+    "QUEUE_PROMOTION_NAME": "${self:custom.queue_promotion_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_DLQ_PROMOTION_NAME": "${self:custom.queue_dlq_promotion_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_PROMOTION_URL":
+      Fn::GetAtt: [QueuePromotion, QueueUrl]
+    "APPSYNC_ARN": "${self:custom.appsync_arn.${opt:stage, self:provider.stage}}"
+    "APPSYNC_URL": "${self:custom.appsync_url.${opt:stage, self:provider.stage}}"
+    "APPSYNC_API_KEY": "${self:custom.appsync_key.${opt:stage, self:provider.stage}}"
+    "ARN_TABLE_DEVICE_NOTIFICATION_TOKEN": "${self:custom.arn_table_device_notification_token.${opt:stage, self:provider.stage}}"
+    "TABLE_DEVICE_NOTIFICATION_TOKEN_NAME": "${self:custom.table_device_notification_token_name.${opt:stage, self:provider.stage}}"
+    "ARN_TABLE_USERS": "${self:custom.arn_table_users.${opt:stage, self:provider.stage}}"
+    "TABLE_USERS_NAME": "${self:custom.table_users_name.${opt:stage, self:provider.stage}}"
+
   iam:
     role:
       statements:
@@ -29,6 +43,23 @@ provider:
             # - "dynamodb:Query"
           Resource:
             - ${self:provider.environment.ARN_TABLE_BUSINESS}
+            - ${self:provider.environment.ARN_TABLE_BUSINESS}/*
+            - ${self:provider.environment.ARN_TABLE_BUSINESS_COMMENTS}
+            - ${self:provider.environment.ARN_TABLE_BUSINESS_COMMENTS}/*
+            - ${self:provider.environment.ARN_TABLE_DEVICE_NOTIFICATION_TOKEN}
+            - ${self:provider.environment.ARN_TABLE_DEVICE_NOTIFICATION_TOKEN}/*
+            - ${self:provider.environment.ARN_TABLE_USERS}
+            - ${self:provider.environment.ARN_TABLE_USERS}/*
+        - Effect: "Allow"
+          Action:
+            - "sqs:SendMessage"
+          Resource:
+            - Fn::GetAtt: [QueuePromotion, Arn] # ARN del SQS QueuePromotion
+        - Effect: "Allow"
+          Action:
+            - "appsync:GraphQL"
+          Resource:
+            - ${self:provider.environment.APPSYNC_ARN}
 
 custom:
   arn_table_business:
@@ -46,6 +77,39 @@ custom:
   s3_bucket_name:
     dev: "s3professions202858-dev"
     prod: "s3professions143312-prod"
+  arn_table_business_comments:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/BusinessComment-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/BusinessComment-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  table_business_comments_name:
+    dev: "BusinessComment-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "BusinessComment-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  arn_table_device_notification_token:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/DeviceNotificationToken-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/DeviceNotificationToken-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  table_device_notification_token_name:
+    dev: "DeviceNotificationToken-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "DeviceNotificationToken-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  arn_table_users:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/Users-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/Users-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  table_users_name:
+    dev: "Users-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "Users-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  queue_promotion_name:
+    dev: "QueuePromotiondev"
+    prod: "QueuePromotion"
+  queue_dlq_promotion_name:
+    dev: "QueuePromotionDLQdev"
+    prod: "QueuePromotionDLQ"
+  appsync_arn:
+    dev: "arn:aws:appsync:us-east-1:086563672363:apis/ehid2xtqobf75gakml3qgdj45m/types/Mutation/fields/createBusinessPromotion"
+    prod: "arn:aws:appsync:us-east-1:086563672363:apis/3phqsjzznfdxlnjnzszwzb6rjy/types/Mutation/fields/createBusinessPromotion"
+  appsync_url:
+    dev: "https://vkrtsagkivgqjgzbnhekkyusfm.appsync-api.us-east-1.amazonaws.com/graphql"
+    prod: "https://cq6hw4g7arg4jitnxitbhihhpu.appsync-api.us-east-1.amazonaws.com/graphql"
+  appsync_key:
+    dev: "da2-2ardlryjrvdl3cqdyrtz2ppq5i"
+    prod: "da2-x4g3fxoha5eeroeswkza7fznny"
 
 functions:
   createBusiness:
@@ -56,3 +120,86 @@ functions:
           method: post
     layers:
       - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+  sendCodeConfirm:
+    handler: functions/sendCodeConfirm.handler
+    events:
+      - http:
+          path: business/sendCodeConfirm
+          method: post
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+  confirmEmail:
+    handler: functions/confirmEmail.handler
+    events:
+      - http:
+          path: business/confirmEmail
+          method: post
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+  checkName:
+    handler: functions/checkName.handler
+    events:
+      - http:
+          path: business/checkName
+          method: get
+  ratings:
+    handler: functions/ratings.handler
+    events:
+      - http:
+          path: business/ratings
+          method: get
+    timeout: 30
+  createPromotionRequest:
+    handler: functions/promotionCreationRequest.handler
+    events:
+      - http:
+          path: business/createPromotion
+          method: post
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  createPromotion:
+    handler: functions/createPromotion.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt: [QueuePromotion, Arn]
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+
+resources:
+  Resources:
+    # ***********QUEUE PROMOTION************
+    # SQS
+    QueuePromotion:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_PROMOTION_NAME}"
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - QueuePromotionsDLQ
+              - Arn
+          maxReceiveCount: 3
+    # DLQ
+    QueuePromotionsDLQ:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_DLQ_PROMOTION_NAME}"
+
+  Outputs:
+    QueuePromotionArn:
+      Value:
+        Fn::GetAtt:
+          - QueuePromotion
+          - Arn
+    QueuePromotionUrl:
+      Value:
+        Ref: QueuePromotion
+    QueuePromotionName:
+      Value:
+        Fn::GetAtt:
+          - QueuePromotion
+          - QueueName

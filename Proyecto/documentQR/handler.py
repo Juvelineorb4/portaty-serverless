@@ -11,48 +11,51 @@ import base64
 
 AWS_REGION = "us-east-1"
 s3 = boto3.client("s3", region_name=AWS_REGION)
-bucketName =  os.environ.get("S3_BUCKET_NAME")
+bucketName = os.environ.get("S3_BUCKET_NAME")
 bucketKey = "public"
+
 
 def documentQr(event, context):
     print(f"Evento {event}")
     print(f"PARAMST: {event['queryStringParameters']} ")
     params = event['queryStringParameters']
     path = params.get("path")
-    identityid= params.get("identityid")
-    businessid= params.get("businessid")
-    pathNew= f"https://www.portaty.com/share/business?id={businessid}"
+    identityid = params.get("identityid")
+    businessid = params.get("businessid")
+    pathNew = f"https://www.portaty.com/share/business?id={businessid}"
     print(f"PATH: {path} IDENTITYID: {identityid} BUSINESSID: {businessid}")
     print(f"PATH NEW: {pathNew}")
     # obtenemos las imagenes del logo y la del imageBase
-    logoResponse = s3.get_object(Bucket=bucketName, Key=f"protected/{identityid}/business/{businessid}/profile_thumbnail.jpg")
-    imageBaseResponse = s3.get_object(Bucket=bucketName, Key=f"{bucketKey}/portatyQR.jpg")
+    logoResponse = s3.get_object(
+        Bucket=bucketName, Key=f"protected/{identityid}/business/{businessid}/profile_thumbnail.jpg")
+    imageBaseResponse = s3.get_object(Bucket=bucketName, Key=f"{
+                                      bucketKey}/portatyQR.jpg")
     logo = logoResponse["Body"].read()
     imageBase = imageBaseResponse["Body"].read()
-    
 
-    # leemos la imagen 
+    # leemos la imagen
     logo = Image.open(BytesIO(logo))
-    logoResize = logo.resize((100,100))
+    logoResize = logo.resize((100, 100))
     logoResize = make_logo_round(logoResize)
     imageBase = Image.open(BytesIO(imageBase))
     imageBase = imageBase.convert("RGBA")
     logoResize = logoResize.convert("RGBA")
     print("SI LEYO L AIMAGEN")
-    
+
     # creamos el qr
     qr = generateQr(path)
     qr = qr.resize((500, 500))
     qrLogo = addImageQr(qr, logoResize)
-    imageBaseQr = addQrImageMain(qrLogo,imageBase)
-    resultPDF = generatePdf("PORTATY_QR.pdf",imageBaseQr)
+    imageBaseQr = addQrImageMain(qrLogo, imageBase)
+    resultPDF = generatePdf("PORTATY_QR.pdf", imageBaseQr)
     # pdf_base64 = base64.b64encode(result).decode('utf-8')
     print(resultPDF)
     pathKey = f"protected/{identityid}/business/{businessid}/portatyQR.pdf"
-    resultSave =s3.put_object(Body=resultPDF, Bucket=bucketName, Key=pathKey, ContentType="application/pdf")
+    resultSave = s3.put_object(
+        Body=resultPDF, Bucket=bucketName, Key=pathKey, ContentType="application/pdf")
 
     response = {
-       'statusCode': 200,
+        'statusCode': 200,
         'body': json.dumps({"url": f"https://{bucketName}.s3.amazonaws.com/{pathKey}"}),
         'headers': {
             'Content-Type': 'application/json',
@@ -76,24 +79,27 @@ def generateQr(path):
     qrImg = qr.make_image().convert('RGB')
     return qrImg
 
-def addImageQr(qr, logoResize):
-  # calcular l;a posiciion de dodne se colocara el logo en el qr
-  logoX = (qr.size[0] - logoResize.size[0]) // 2
-  logoY = (qr.size[1] - logoResize.size[1]) // 2
-  logoPos = (logoX, logoY)
 
-  # insert logo image into qr code image
-  qr.paste(logoResize, logoPos,logoResize)
-  return qr
+def addImageQr(qr, logoResize):
+    # calcular l;a posiciion de dodne se colocara el logo en el qr
+    logoX = (qr.size[0] - logoResize.size[0]) // 2
+    logoY = (qr.size[1] - logoResize.size[1]) // 2
+    logoPos = (logoX, logoY)
+
+    # insert logo image into qr code image
+    qr.paste(logoResize, logoPos, logoResize)
+    return qr
+
 
 def addQrImageMain(qr, image):
-  positionBase = (292,380)
-  #resizeQr = qr.resize((500,500))
-  image.paste(qr, positionBase)
-  return image
+    positionBase = (292, 380)
+    # resizeQr = qr.resize((500,500))
+    image.paste(qr, positionBase)
+    return image
+
 
 def generatePdf(path, image):
- 
+
     # Crear un nuevo archivo PDF en memoria
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer)
@@ -128,6 +134,7 @@ def generatePdf(path, image):
 
     return pdf_bytes
 
+
 def make_logo_round(logo):
     # Crear una nueva imagen con el mismo tamaño y modo que el logo
     mask = Image.new('L', logo.size, 0)
@@ -145,4 +152,3 @@ def make_logo_round(logo):
     round_logo.paste(logo, mask=mask)
 
     return round_logo
-

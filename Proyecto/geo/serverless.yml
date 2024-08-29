@@ -1,0 +1,61 @@
+# "org" ensures this Service is used with the correct Serverless Framework Access Key.
+org: juvelineorb4
+# "app" enables Serverless Framework Dashboard features and sharing them with other Services.
+app: portaty-professions
+service: portaty-geo
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  apiGateway:
+    restApiId: "${self:custom.api_gateway_id.${opt:stage, self:provider.stage}}"
+    restApiRootResourceId: "${self:custom.api_gateway_resourceid.${opt:stage, self:provider.stage}}"
+  environment:
+    "PLACE_INDEX_NAME": "${self:custom.place_index_name.${opt:stage, self:provider.stage}}"
+    "PLACE_INDEX_ARN": ${cf:portaty-geo-${self:provider.stage}.PlaceIndexName}
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "geo:SearchPlaceIndexForText"
+            - "geo:SearchPlaceIndexForSuggestions"
+            - "geo:GetPlace"
+          Resource: "*"
+
+resources:
+  Resources:
+    # Place Index Location
+    PortatyIndexLocation:
+      Type: "AWS::Location::PlaceIndex"
+      Properties:
+        DataSource: "Esri"
+        IndexName: "${self:provider.environment.PLACE_INDEX_NAME}"
+  Outputs:
+    PlaceIndexName:
+      Value:
+        Fn::GetAtt:
+          - PortatyIndexLocation
+          - Arn
+custom:
+  api_gateway_id:
+    dev: "x0nk2m8hvi"
+    prod: "z5i64n32d6"
+  api_gateway_resourceid:
+    dev: "eclownm620"
+    prod: "xugqzpp4pb"
+  place_index_name:
+    dev: "portatyindex-dev"
+    prod: "portatyindex-prod"
+
+functions:
+  searchGeo:
+    handler: functions/search.handler
+    events:
+      - http:
+          path: location/_search
+          method: get
