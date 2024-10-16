@@ -73,28 +73,47 @@ def list_promotions(business_ids):
     )
     return response.json()["data"]["listBusinessPromotions"]["items"]
 
-def list_business_by_distance(location):
+def list_business_by_distance(location, user_id):
     lat = location["lat"]
     lon = location["lon"]
     query = {
-        "_source": ["id","thumbnail"],
-        "query": {
-            "bool": {
-                "must": {
-                    "match_all": {}
-                },
-                "filter": {
-                    "geo_distance": {
-                        "distance": "100km",
-                        "coordinates": {
-                            "lat": f"{lat}",
-                            "lon": f"{lon}"
-                        }
-                    }
-                }
-            }
+  "_source": ["id", "thumbnail"],
+  "query": {
+    "bool": {
+      "must": [
+        {
+          "match_all": {}
         }
+      ],
+      "filter": [
+        {
+          "bool": {
+            "should": [
+              {
+                "geo_distance": {
+                  "distance": "100km",
+                  "coordinates": {
+                    "lat": f"{lat}",
+                    "lon": f"{lon}"
+                  }
+                }
+              },
+              {
+                "term": {
+                  "userID": f"{user_id}"
+                }
+              }
+            ],
+            "minimum_should_match": 1
+          }
+        }
+      ]
     }
+  }
+}
+    
+    
+
 
     # Elasticsearch 6.x requires an explicit Content-Type header
     headers = {"Content-Type": "application/json"}
@@ -116,16 +135,31 @@ def handler(event, context):
     print("PARAMS: ", params)
     locationString = params["location"]
     location = json.loads(locationString)
+    user_id = params["userID"]
 
     try:
-        # Realizar busqueda de negocios por distancia 
-        business_ids_distance = list_business_by_distance(location)
+        # Realizar búsqueda de negocios por distancia 
+        business_ids_distance = list_business_by_distance(location, user_id)
+        
+        # Si no hay negocios cercanos, devolver una respuesta vacía
+        if not business_ids_distance:
+            return {
+                'statusCode': 200,
+                'body': json.dumps({
+                    "success": True,
+                    "data": [],
+                    "message": "No hay negocios cercanos a 100km."
+                })
+            }
+        
         # Realizar la consulta para obtener información de las promociones
         promotions_info = list_promotions(business_ids_distance)
         print("Información de las promociones:", promotions_info)
   
         # Procesar la información para construir el array de stories
         stories = []
+        user_business_stories = []
+        other_business_stories = []
 
         for promotion in promotions_info:
             business_id = promotion['business'].get('id', '')
@@ -167,7 +201,15 @@ def handler(event, context):
                         "coordinates": business_coordinates
                     }
                 }
-                stories.append(business_obj)
+
+            # Verificar si este negocio pertenece al usuario
+            if promotion['business'].get('userID') == user_id:
+                user_business_stories.append(business_obj)
+            else:
+                other_business_stories.append(business_obj)
+
+        # Combinar las historias de los negocios del usuario primero y luego los demás
+        stories = user_business_stories + other_business_stories
 
         # Devolver la respuesta exitosa con los datos consultados
         print("stories", stories)

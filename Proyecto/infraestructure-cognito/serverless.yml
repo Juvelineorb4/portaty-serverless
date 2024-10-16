@@ -1,0 +1,311 @@
+service: portaty-infraestructure-cognito
+app: portaty-professions
+org: juvelineorb4
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  environment:
+    EJEMPLO: "EJEMPLO"
+    COGNITO_USER_POOL_NAME: "${self:custom.user_pool_name.${opt:stage, self:provider.stage}}"
+    COGNITO_USER_POOL_ARN:
+      Fn::GetAtt: [CognitoUserPool, Arn]
+    COGNITO_USER_POOL_ID:
+      Ref: CognitoUserPool
+    S3_BUCKET_ARN: "${self:custom.s3_bucket_arn.${opt:stage, self:provider.stage}}"
+    FIREHOSE_ARN: "${self:custom.firehose_arn.${opt:stage, self:provider.stage}}"
+    APPSYNC_ARN: "${self:custom.appsync_arn.${opt:stage, self:provider.stage}}"
+    GOOGLE_CLIENT_ID: "${self:custom.google_client_id.${opt:stage, self:provider.stage}}"
+    GOOGLE_CLIENT_SECRET: "${self:custom.google_client_secret.${opt:stage, self:provider.stage}}"
+    OLD_COGNITO_USER_POOL_ARN: "${self:custom.old_cognito_user_pool_arn.${opt:stage, self:provider.stage}}"
+  # Agregamos la política de IAM
+  iam:
+    role:
+      statements:
+        - Effect: "Allow"
+          Action:
+            - "cognito-idp:AdminGetUser"
+            - "cognito-idp:AdminInitiateAuth"
+            - "cognito-idp:AdminCreateUser"
+            - "cognito-idp:AdminSetUserPassword"
+          Resource:
+            - ${self:provider.environment.COGNITO_USER_POOL_ARN}
+            - ${self:provider.environment.OLD_COGNITO_USER_POOL_ARN}
+custom:
+  user_pool_name:
+    dev: portaty-dev
+    prod: portaty-prod
+  appsync_arn:
+    dev: arn:aws:appsync:us-east-1:086563672363:apis/ehid2xtqobf75gakml3qgdj45m
+    prod: arn:aws:appsync:us-east-1:086563672363:apis/3phqsjzznfdxlnjnzszwzb6rjy
+  appsync_id:
+    dev: ehid2xtqobf75gakml3qgdj45m
+    prod: 3phqsjzznfdxlnjnzszwzb6rjy
+  s3_bucket_arn:
+    dev: arn:aws:s3:::s3professions202858-dev
+    prod: arn:aws:s3:::s3professions143312-prod
+  firehose_arn:
+    dev: arn:aws:firehose:us-east-1:086563672363:deliverystream/portaty-dev-stream
+    prod: arn:aws:firehose:us-east-1:086563672363:deliverystream/portaty-prod-stream
+  google_client_id:
+    dev: 937865933585-u70muhp3nuq8qpqkqv07cd5hgm6tarlj.apps.googleusercontent.com
+    prod: ""
+  google_client_secret:
+    dev: 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
+    prod: ""
+  old_cognito_user_pool_id:
+    dev: "us-east-1_Mr2xjl1Hg"
+    prod: "us-east-1_aiv5jx4kp"
+  old_cognito_user_pool_arn:
+    dev: "arn:aws:cognito-idp:us-east-1:086563672363:userpool/us-east-1_Mr2xjl1Hg"
+    prod: "arn:aws:cognito-idp:us-east-1:086563672363:userpool/us-east-1_aiv5jx4kp"
+  old_cognito_user_pool_client_id:
+    dev: "2tlmib17h4hrvampjlbl915jp9"
+    prod: ""
+
+functions:
+  userMigration:
+    handler: functions/userMigration.handler
+    environment:
+      OLD_COGNITO_USER_POOL_ID: "${self:custom.old_cognito_user_pool_id.${opt:stage, self:provider.stage}}"
+      OLD_COGNITO_USER_POOL_CLIENT_ID: "${self:custom.old_cognito_user_pool_client_id.${opt:stage, self:provider.stage}}"
+    events:
+      - cognitoUserPool:
+          pool: ${self:provider.environment.COGNITO_USER_POOL_NAME}
+          trigger: UserMigration
+          existing: true
+
+  preSignUp:
+    handler: functions/preSignUp.handler
+    events:
+      - cognitoUserPool:
+          pool: ${self:provider.environment.COGNITO_USER_POOL_NAME}
+          trigger: PreSignUp
+          existing: true
+
+  postConfirmation:
+    handler: functions/postConfirmation.handler
+    events:
+      - cognitoUserPool:
+          pool: ${self:provider.environment.COGNITO_USER_POOL_NAME}
+          trigger: PostConfirmation
+          existing: true
+
+  preAuth:
+    handler: functions/preAuth.handler
+    events:
+      - cognitoUserPool:
+          pool: ${self:provider.environment.COGNITO_USER_POOL_NAME}
+          trigger: PreAuthentication
+          existing: true
+
+  postAuth:
+    handler: functions/postAuth.handler
+    events:
+      - cognitoUserPool:
+          pool: ${self:provider.environment.COGNITO_USER_POOL_NAME}
+          trigger: PostAuthentication
+          existing: true
+
+  preTokenGeneration:
+    handler: functions/preTokenGeneration.handler
+    events:
+      - cognitoUserPool:
+          pool: ${self:provider.environment.COGNITO_USER_POOL_NAME}
+          trigger: PreTokenGeneration
+          existing: true
+
+resources:
+  Resources:
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:provider.environment.COGNITO_USER_POOL_NAME}
+        UsernameAttributes:
+          - email
+        AutoVerifiedAttributes:
+          - email
+        EmailVerificationMessage: "Tu código de verificación es {####}. Introduce este código para completar tu registro en Portaty."
+        EmailVerificationSubject: "Tu codigo de verificacion es {####}"
+        MfaConfiguration: "OFF"
+        Schema:
+          - Name: email
+            AttributeDataType: String
+            Required: true
+            Mutable: true
+          - Name: gender
+            AttributeDataType: String
+            Required: false
+            Mutable: true
+          - Name: identityID
+            AttributeDataType: String
+            Required: false
+            Mutable: true
+          - Name: lastLocation
+            AttributeDataType: String
+            Required: false
+            Mutable: true
+          - Name: lastName
+            AttributeDataType: String
+            Required: false
+            Mutable: true
+          - Name: notificationToken
+            AttributeDataType: String
+            Required: false
+            Mutable: true
+          - Name: requestDeleting
+            AttributeDataType: Boolean
+            Required: false
+            Mutable: true
+          - Name: userTableID
+            AttributeDataType: String
+            Required: false
+            Mutable: true
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireUppercase: false
+            RequireLowercase: false
+            RequireNumbers: false
+            RequireSymbols: false
+        UserAttributeUpdateSettings:
+          AttributesRequireVerificationBeforeUpdate:
+            - email
+        UsernameConfiguration:
+          CaseSensitive: false
+
+        AccountRecoverySetting:
+          RecoveryMechanisms:
+            - Priority: 1
+              Name: verified_email
+
+    CognitoUserPoolClientWeb:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        UserPoolId:
+          Ref: CognitoUserPool
+        AllowedOAuthFlows:
+          - code
+        AllowedOAuthFlowsUserPoolClient: true
+        AllowedOAuthScopes:
+          - email
+          - openid
+          - profile
+          - aws.cognito.signin.user.admin
+        CallbackURLs:
+          - exp://192.168.2.21:8081/
+        LogoutURLs:
+          - exp://192.168.2.21:8081/
+        ClientName: user-pool-clientWeb-portaty-${self:provider.stage}
+        RefreshTokenValidity: 30
+        SupportedIdentityProviders:
+          - Google
+          - COGNITO
+        TokenValidityUnits:
+          RefreshToken: days
+      DependsOn:
+        - CognitoUserPool
+        - CognitoGoogleIdentityProvider
+
+    CognitoUserPoolClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        UserPoolId:
+          Ref: CognitoUserPool
+        AllowedOAuthFlows:
+          - code
+        AllowedOAuthFlowsUserPoolClient: true
+        AllowedOAuthScopes:
+          - email
+          - openid
+          - profile
+          - aws.cognito.signin.user.admin
+        CallbackURLs:
+          - exp://192.168.2.21:8081/
+        LogoutURLs:
+          - exp://192.168.2.21:8081/
+        ClientName: user-pool-client-portaty-${self:provider.stage}
+        GenerateSecret: false
+        RefreshTokenValidity: 30
+        SupportedIdentityProviders:
+          - Google
+          - COGNITO
+        TokenValidityUnits:
+          RefreshToken: days
+        ExplicitAuthFlows:
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_ADMIN_USER_PASSWORD_AUTH
+
+      DependsOn:
+        - CognitoUserPool
+        - CognitoGoogleIdentityProvider
+
+    CognitoUserPoolDomain:
+      Type: AWS::Cognito::UserPoolDomain
+      Properties:
+        Domain: portaty-${self:provider.stage}
+        UserPoolId:
+          Ref: CognitoUserPool
+      DependsOn:
+        - CognitoUserPool
+
+    CognitoGoogleIdentityProvider:
+      Type: AWS::Cognito::UserPoolIdentityProvider
+      Properties:
+        UserPoolId:
+          Ref: CognitoUserPool
+        ProviderName: Google
+        ProviderType: Google
+        ProviderDetails:
+          client_id: ${self:provider.environment.GOOGLE_CLIENT_ID}
+          client_secret: ${self:provider.environment.GOOGLE_CLIENT_SECRET}
+          authorize_scopes: "openid profile email"
+        AttributeMapping:
+          email: email
+      DependsOn:
+        - CognitoUserPool
+
+  Outputs:
+    CognitoUserPoolId:
+      Description: "ID del Cognito User Pool"
+      Value:
+        Ref: CognitoUserPool
+
+    CognitoUserPoolArn:
+      Description: "ARN del Cognito User Pool"
+      Value:
+        Fn::GetAtt: [CognitoUserPool, Arn]
+
+    CognitoUserPoolClientId:
+      Description: "ID del Cognito User Pool Client"
+      Value:
+        Ref: CognitoUserPoolClient
+
+    CognitoUserPoolClientWebId:
+      Description: "ID del Cognito User Pool Client"
+      Value:
+        Ref: CognitoUserPoolClientWeb
+
+    CognitoUserPoolDomain:
+      Description: "Dominio del Cognito User Pool"
+      Value:
+        Ref: CognitoUserPoolDomain
+
+    CognitoIdentityProviderName:
+      Description: "Nombre del Provider para Cognito Identity Pool"
+      Value:
+        Fn::Sub:
+          - cognito-idp.${region}.amazonaws.com/${CognitoUserPool}
+          - region: ${self:provider.region}
+            CognitoUserPool:
+              Ref: CognitoUserPool
+    CognitoIdentityProviderName2:
+      Description: "Nombre del Provider para Cognito Identity Pool"
+      Value:
+        Fn::Sub: "cognito-idp.${self:provider.region}.amazonaws.com/${CognitoUserPool}"

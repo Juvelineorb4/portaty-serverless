@@ -36,61 +36,70 @@ def handler(event, context):
     query = {
         "from": fromTo,
         "size": limit,
+        "_source": ["id", "name", "activity", "coordinates", "thumbnail", "images"],
         "query": {
             "function_score": {
+            "query": {
+                "nested": {
+                "path": "tags",
                 "query": {
-                    "nested": {
-                        "path": "tags",
-                        "query": {
-                            "function_score": {
-                                "query": {
-                                    "bool": {
-                                        "must": [
-                                            {
-                                                "match": {
-                                                    "tags.value": f"{text}"
-                                                }
-                                            }
-                                        ]
-                                    }
-                                },
-                                "functions": [
-
-                                    {
-                                        "field_value_factor": {
-                                            "field": "tags.priority",
-                                            "modifier": "log1p"
-                                        },
-                                        "weight": 1
-                                    }
-                                ],
-                                "score_mode": "sum"
+                    "bool": {
+                    "should": [
+                        {
+                        "match": {
+                            "tags.value": {
+                            "query": f"{text}",
+                            "fuzziness": "AUTO",
+                            "operator": "and"
                             }
                         }
+                        },
+                        {
+                        "wildcard": {
+                            "tags.value.keyword": {
+                            "value": f"*{text}*"
+                            }
+                        }
+                        }
+                    ]
+                    }
+                }
+                }
+            },
+            "functions": [
+                {
+                "filter": {
+                    "exists": {
+                    "field": "tags.priority"
                     }
                 },
-                "functions": [
-                    {
-                        "filter": {
-                            "exists": {
-                                "field": "coordinates"
-                            }
-                        },
-                        "gauss": {
-                            "coordinates": {
-                                "origin": f"{lat},{lon}",
-                                "offset": f"{distance}km",
-                                "scale":  f"{distance}km",
-                                "decay": 0.25
-                            }
-                        },
-                        "weight": 1
+                "field_value_factor": {
+                    "field": "tags.priority",
+                    "modifier": "log1p",
+                    "missing": 1
+                },
+                "weight": 2
+                },
+                {
+                "gauss": {
+                    "coordinates": {
+                    "origin": {
+                        "lat": lat, 
+                        "lon": lon  
+                    },
+                    "scale": f"{distance}km",
+                    "offset": f"{distance}km",
+                    "decay": 0.5
                     }
-                ],
-                "score_mode": "sum"
+                },
+                "weight": 1  
+                }
+            ],
+            "score_mode": "sum",
+            "boost_mode": "multiply"
             }
         }
-    }
+        }
 
    # Elasticsearch 6.x requires an explicit Content-Type header
     headers = {"Content-Type": "application/json"}

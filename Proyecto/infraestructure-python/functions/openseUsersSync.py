@@ -115,13 +115,27 @@ def handler(event, context):
             notification_token = doc_fields.get("notificationToken", None)
             email = doc_fields.get("email", None)
             owner = doc_fields.get("owner", None)
+            name = doc_fields.get("name", None)
+            lastName = doc_fields.get("lastName", None)
+            identityID = doc_fields.get("identityID", None)
+            gender =doc_fields.get("gender", None)
+            createdAt= doc_fields.get("createdAt", None)
+            updatedAt= doc_fields.get("updatedAt", None)
             doc_fields = {
                 "id": user_id,
+                "name": name, 
+                "lastName": lastName,
                 "email": email,
+                "identityID": identityID,
+                "gender": gender,
                 "lastLocation":last_location,
                 "notificationToken": notification_token,
-                "owner": owner
+                "owner": owner,
+                "createdAt": createdAt,
+                "updatedAt": updatedAt
             }
+       
+            
             print("RESULTADO FINAL: ", doc_fields)
             
             if event_name == 'INSERT':

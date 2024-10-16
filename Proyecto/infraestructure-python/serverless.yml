@@ -36,6 +36,13 @@ provider:
     "TOPIC_USERS_CHANGE_LOCATION_NAME": "${self:custom.topic_users_change_location_name.${opt:stage, self:provider.stage}}"
     "TOPIC_USERS_CHANGE_LOCATION_ARN":
       Ref: TopicUsersChangeLocation
+    "QUEUE_USERS_SEND_EMAIL_NAME": "${self:custom.queue_users_send_email.${opt:stage, self:provider.stage}}"
+    "QUEUE_DLQ_USERS_SEND_EMAIL_NAME": "${self:custom.queue_dlq_users_send_email.${opt:stage, self:provider.stage}}"
+    "TOPIC_USERS_SEND_EMAIL_NAME": "${self:custom.topic_users_send_email_name.${opt:stage, self:provider.stage}}"
+    "TOPIC_USERS_SEND_EMAIL_ARN":
+      Ref: TopicUsersSendEmail
+    "S3_BUCKET_NAME": "${self:custom.s3_bucket_name.${opt:stage, self:provider.stage}}"
+
   apiGateway:
     minimumCompressionSize: 1024
     shouldStartNameWithService: true
@@ -50,12 +57,16 @@ provider:
             - Ref: TopicOpenseSync
             - Ref: TopicUsersOpenseSync
             - Ref: TopicUsersChangeLocation
+            - Ref: TopicUsersSendEmail
         - Effect: "Allow"
           Action:
             - "es:*"
           Resource:
             - "${self:provider.environment.OPENSEARCH_ARN}/*"
-
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "*"
 custom:
   opense_index:
     dev: "business_dev"
@@ -102,6 +113,18 @@ custom:
   topic_users_change_location_name:
     dev: "TopicUsersChangeLocationdev"
     prod: "TopicUsersChangeLocation"
+  queue_users_send_email:
+    dev: "QueueUsersSendEmaildev"
+    prod: "QueueUsersSendEmail"
+  queue_dlq_users_send_email:
+    dev: "QueueUsersSendEmailDLQdev"
+    prod: "QueueUsersSendEmailDLQ"
+  topic_users_send_email_name:
+    dev: "TopicUsersSendEmaildev"
+    prod: "TopicUsersSendEmail"
+  s3_bucket_name:
+    dev: "s3professions202858-dev"
+    prod: "s3professions143312-prod"
 functions:
   test:
     handler: handler.hello
@@ -151,6 +174,14 @@ functions:
     layers:
       - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
     timeout: 30
+  sendEmailUser:
+    handler: functions/sendEmailUser.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - QueueUsersSendEmail
+              - Arn
 
 resources:
   Resources:
@@ -380,6 +411,57 @@ resources:
                     - Ref: TopicUsersChangeLocation
         Queues:
           - "${self:provider.environment.QUEUE_USERS_CHANGE_LOCATION_NAME}"
+
+    # FANOUT PARA CUANDO CAMBIA EL LOCATION DE UN USUARIO
+    # SQS
+    QueueUsersSendEmail:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_USERS_SEND_EMAIL_NAME}"
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - QueueUsersSendEmailDLQ
+              - Arn
+          maxReceiveCount: 3
+    # DLQ
+    QueueUsersSendEmailDLQ:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName:
+          "${self:provider.environment.QUEUE_DLQ_USERS_SEND_EMAIL_NAME}"
+          # # TOPIC
+    TopicUsersSendEmail:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: "${self:provider.environment.TOPIC_USERS_SEND_EMAIL_NAME}"
+        Subscription:
+          - Protocol: sqs
+            Endpoint:
+              Fn::GetAtt:
+                - QueueUsersSendEmail
+                - Arn
+    # # POLICY
+    QueuePolicyUsersSendEmail:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "sqs:SendMessage"
+              Resource:
+                Fn::GetAtt:
+                  - QueueUsersSendEmail
+                  - Arn
+              Principal: "*"
+              Condition:
+                ArnEquals:
+                  "aws:SourceArn":
+                    - Ref: TopicUsersSendEmail
+        Queues:
+          - "${self:provider.environment.QUEUE_USERS_SEND_EMAIL_NAME}"
 
   Outputs:
     SQSSendEmailBusinessArn:

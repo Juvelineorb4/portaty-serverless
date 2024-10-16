@@ -69,10 +69,10 @@ custom:
     dev: "Business-ehid2xtqobf75gakml3qgdj45m-dev"
     prod: "Business-3phqsjzznfdxlnjnzszwzb6rjy-prod"
   api_gateway_id:
-    dev: "x0nk2m8hvi"
+    dev: "3aa3yts4zj"
     prod: "z5i64n32d6"
   api_gateway_resourceid:
-    dev: "eclownm620"
+    dev: "zah4kq66hf"
     prod: "xugqzpp4pb"
   s3_bucket_name:
     dev: "s3professions202858-dev"

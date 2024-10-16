@@ -1,0 +1,55 @@
+service: portaty-user-notification
+app: portaty-professions
+org: juvelineorb4
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.11
+  stage: ${opt:stage, 'dev'}
+  region: us-east-1
+  apiGateway:
+    restApiId: "${self:custom.api_gateway_id.${opt:stage, self:provider.stage}}"
+    restApiRootResourceId: "${self:custom.api_gateway_resourceid.${opt:stage, self:provider.stage}}"
+  environment:
+    APPSYNC_URL: "${self:custom.appsync_url.${opt:stage, self:provider.stage}}"
+    APPSYNC_API_KEY: "${self:custom.appsync_key.${opt:stage, self:provider.stage}}"
+    S3_BUCKET_NAME: "${self:custom.s3_bucket_name.${opt:stage, self:provider.stage}}"
+    TABLE_USER_NOTIFICATION_NAME: "${self:custom.table_user_notification_name.${opt:stage, self:provider.stage}}"
+    ARN_USER_NOTIFICATION: "${self:custom.arn_table_user_notification.${opt:stage, self:provider.stage}}"
+    TABLE_USER_NOTIFICATION_STREAM: "${self:custom.table_user_notification_stream.${opt:stage, self:provider.stage}}"
+custom:
+  api_gateway_id:
+    dev: "3aa3yts4zj"
+    prod: "z5i64n32d6"
+  api_gateway_resourceid:
+    dev: "zah4kq66hf"
+    prod: "xugqzpp4pb"
+  appsync_url:
+    dev: "https://vkrtsagkivgqjgzbnhekkyusfm.appsync-api.us-east-1.amazonaws.com/graphql"
+    prod: "https://cq6hw4g7arg4jitnxitbhihhpu.appsync-api.us-east-1.amazonaws.com/graphql"
+  appsync_key:
+    dev: "da2-2ardlryjrvdl3cqdyrtz2ppq5i"
+    prod: "da2-x4g3fxoha5eeroeswkza7fznny"
+  s3_bucket_name:
+    dev: "s3professions202858-dev"
+    prod: "s3professions143312-prod"
+  table_user_notification_name:
+    dev: "UserNotification-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "UserNotification-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  arn_table_user_notification:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/UserNotification-ehid2xtqobf75gakml3qgdj45m-dev"
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/UserNotification-3phqsjzznfdxlnjnzszwzb6rjy-prod"
+  table_user_notification_stream:
+    dev: "arn:aws:dynamodb:us-east-1:086563672363:table/UserNotification-ehid2xtqobf75gakml3qgdj45m-dev/stream/2024-08-15T16:58:34.924"
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/UserNotification-3phqsjzznfdxlnjnzszwzb6rjy-prod/stream/2024-09-13T19:22:59.421"
+functions:
+  triggerUserNotification:
+    handler: functions/triggerUserNotification.handler
+    events:
+      - stream:
+          type: dynamodb
+          arn: ${self:provider.environment.TABLE_USER_NOTIFICATION_STREAM}
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3

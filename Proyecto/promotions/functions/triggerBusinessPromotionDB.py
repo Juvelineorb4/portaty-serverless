@@ -34,6 +34,8 @@ def handler(event, context):
                     userID = newImage.get('userID', {}).get('S')
                     title = newImage.get('title', {}).get('S')
                     image_url = newImage.get('image', {}).get('S')
+                    dateInitial = newImage.get('dateInitial', {}).get('S')
+                    dateFinal = newImage.get('dateFinal', {}).get('S')
                     if status == "PUBLISHED":
                         print("ENVIAR NOTIFICACIONES A TODOS LOS USUARIOS")
                         msg_object = {
@@ -43,7 +45,9 @@ def handler(event, context):
                                 "status": status,
                                 "userID": userID,
                                 "title":title,
-                                "image_url":image_url
+                                "image_url":image_url,
+                                "dateInitial": dateInitial,
+                                "dateFinal": dateFinal
                             }
                         }
                         msg = json.dumps(msg_object)

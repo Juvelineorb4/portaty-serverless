@@ -20,6 +20,9 @@ provider:
     OPENSE_ANALYTICS_INDEX: "${self:custom.opense_analytics_index.${opt:stage, self:provider.stage}}"
     STAGE: ${self:provider.stage}
     REGION: ${self:provider.region}
+    OPENSE_BUSINESS_INDEX: "${self:custom.opense_business_index.${opt:stage, self:provider.stage}}"
+    PLACE_INDEX_NAME: "${self:custom.place_index_name.${opt:stage, self:provider.stage}}"
+    S3_BUCKET_NAME: "${self:custom.s3_bucket_name.${opt:stage, self:provider.stage}}"
 
   iam:
     role:
@@ -29,12 +32,23 @@ provider:
             - "es:*"
           Resource:
             - arn:aws:es:us-east-1:086563672363:domain/portaty-opense/*
+        - Effect: "Allow"
+          Action:
+            - "geo:SearchPlaceIndexForText"
+            - "geo:SearchPlaceIndexForSuggestions"
+            - "geo:GetPlace"
+            - "geo:SearchPlaceIndexForPosition"
+          Resource: "*"
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "*"
 custom:
   api_gateway_id:
-    dev: "x0nk2m8hvi"
+    dev: "3aa3yts4zj"
     prod: "z5i64n32d6"
   api_gateway_resourceid:
-    dev: "eclownm620"
+    dev: "zah4kq66hf"
     prod: "xugqzpp4pb"
   opense_index:
     dev: "business_dev"
@@ -42,6 +56,15 @@ custom:
   opense_analytics_index:
     dev: "events_dev"
     prod: "events"
+  opense_business_index:
+    dev: "business_dev"
+    prod: "business"
+  place_index_name:
+    dev: "portatyindex-dev"
+    prod: "portatyindex-prod"
+  s3_bucket_name:
+    dev: "s3professions202858-dev"
+    prod: "s3professions143312-prod"
 
 functions:
   searchDefault:
@@ -207,6 +230,39 @@ functions:
       - http:
           path: analytics/events/favorites/remove/country-percentage
           method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  # SEARCH
+  searchBusinessBySectors:
+    handler: functions/search/businessBySectors.handler
+    events:
+      - http:
+          path: search/businessBySectors
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  searchBusinessByActivities:
+    handler: functions/search/businessByActivities.handler
+    events:
+      - http:
+          path: search/businessByActivities
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  searchBusinessByInput:
+    handler: functions/search/businessByInput.handler
+    events:
+      - http:
+          path: search/businessByInput
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  uploadCountriesOpense:
+    handler: functions/countries/uploadCountriesOpense.handler
     timeout: 30
     layers:
       - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2

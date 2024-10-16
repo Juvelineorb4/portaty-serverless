@@ -53,6 +53,8 @@ def list_promotions(business_ids):
                 id
                 title
                 notifiedUserIDs
+                businessID
+                image
                 business{
                     name
                 }
@@ -190,6 +192,43 @@ def update_notified_users(promotion_id, user_id):
         print(f"Error al actualizar DynamoDB: {e}")
         raise e
 
+
+def create_notification_user(data):
+   
+    query = """
+       mutation CreateUserNotification(
+            $input: CreateUserNotificationInput!
+        ) {
+            createUserNotification(input: $input) {
+            id
+            userID
+            title
+            message
+            type
+            data
+            owner
+            createdAt
+            updatedAt
+            __typename
+            }
+        }
+    """
+    variables = {
+      "input": data
+    }
+    print("FILTER: ", variables)
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": appsync_api_key
+    }
+
+    response = requests.post(
+        appsync_api_url,
+        json={"query": query, "variables": variables},
+        headers=headers,
+    )
+    print("RESPONSE GRAPHQL:", response.json())
+    return response.json()["data"]
 def handler(event, context):
     try:
         for record in event['Records']:
@@ -234,27 +273,44 @@ def handler(event, context):
                 
                 if business_ids:
                     promotions = list_promotions(business_ids)
+                    print("PROMOCION: ", promotions)
                     user_id = new_image.get('id', {}).get('S')  # Asume que userID está en NewImage
-
+                    print("USUARIO: ", user_id)
                     if 'notificationToken' not in new_image or not new_image['notificationToken'].get('L'):
                         print("El campo 'notificationToken' no se encuentra en NewImage o está vacío.")
                         continue
+                    if 'owner' not in new_image or not new_image['owner'].get('S'):
+                        print("El campo 'owner' no se encuentra en NewImage o está vacío.")
+                        continue
 
                     ownerToken = new_image['notificationToken']['L'][0]["S"]
+                    ownerID = new_image['owner']['S'][0]
                     print("NOTIFICATION TOKEN: ", ownerToken)
                     if user_id:
                         for promotion in promotions:
-                            print("PROMOCION: ", promotion)
                             promotion_id = promotion['id']
                             notified_user_ids = promotion.get('notifiedUserIDs', [])
                             if notified_user_ids is None:
                                 notified_user_ids = []
                             nombre = promotion.get('business').get("name", "")
                             title = promotion.get('title', "")
+                            promotion_business_id = promotion.get('businessID', "")
+                            promotion_image = promotion.get('image', "")
                             print("notified_user_ids", notified_user_ids)
                             if user_id not in notified_user_ids:
-                                
-                                send_notification(promotion_id, user_id, ownerToken, nombre, title)
+                                input_data = {
+                                    "userID": user_id,
+                                    "type":"promotion",
+                                    "title": f"¡Nueva promoción de {nombre}!",
+                                    "message": title,
+                                    "data": json.dumps({
+                                        'promotionID': promotion_business_id,
+                                        "image": promotion_image,
+                                        "extra": promotion
+                                    }),
+                                    "owner": ownerID
+                                    }
+                                create_notification_user(input_data)
                                 update_notified_users(promotion_id, user_id)
                             else:
                                 print(f"El usuario {user_id} ya ha sido notificado sobre la promoción {promotion_id}.")

@@ -7,13 +7,13 @@ TOPIC_OPENSEARCH = os.environ.get("SNS_TOPIC_OPENSEARCH_ARN")
 TOPIC_TRIGGER = os.environ.get("SNS_TOPIC_ARN")
 
 
-def sendTopic(email):
-    objecto = {"email": email}
+def sendTopic(record):
+
 
     TOPIC_ARN = TOPIC_TRIGGER
     result = client.publish(
     TopicArn= TOPIC_ARN,
-    Message=json.dumps(objecto),
+    Message=json.dumps(record),
     )
 
     print("RESPONSE:", result)
@@ -43,8 +43,7 @@ def handler(event, context):
             if (eventName == "INSERT"): 
                 priority_message = "1"
                 datos = record["dynamodb"]["NewImage"]
-                email =  datos["email"]["S"]
-                sendTopic(email)
+                sendTopic(datos)
             # Enviar evento para ser analizado
             resultOpenseTocip = openSearchTopic(record, priority_message)
             print("RESULTADO DE ENVIAR MENSAJE A TOPICO: ",resultOpenseTocip)

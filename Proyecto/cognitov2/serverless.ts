@@ -66,6 +66,8 @@ const serverlessConfiguration: AWS = {
               "cognito-idp:ConfirmSignUp",
               "cognito-idp:ResendConfirmationCode",
               "cognito-idp:ListUsers",
+              "cognito-idp:AdminLinkProviderForUser",
+              "cognito-idp:AdminCreateUser",
             ],
             Resource: ["${self:provider.environment.ARN_COGNITO}"],
           },
@@ -91,6 +93,7 @@ const serverlessConfiguration: AWS = {
           },
         },
       ],
+      timeout: 60,
     },
     postConfirmation: {
       ...postConfirmation,
@@ -103,6 +106,7 @@ const serverlessConfiguration: AWS = {
           },
         },
       ],
+      timeout: 60,
     },
     customMessage: {
       ...customMessage,
@@ -115,6 +119,7 @@ const serverlessConfiguration: AWS = {
           },
         },
       ],
+      timeout: 60,
     },
     changeEmail: {
       ...changeEmail,
@@ -126,7 +131,7 @@ const serverlessConfiguration: AWS = {
           },
         },
       ],
-      timeout: 30,
+      timeout: 60,
     },
     requestAccountDeletion: {
       ...requestAccountDeletion,
@@ -138,7 +143,7 @@ const serverlessConfiguration: AWS = {
           },
         },
       ],
-      timeout: 30,
+      timeout: 60,
     },
     preAuth: {
       ...preAuth,
@@ -151,6 +156,7 @@ const serverlessConfiguration: AWS = {
           },
         },
       ],
+      timeout: 60,
     },
     postLogin: {
       ...postLogin,
@@ -174,7 +180,7 @@ const serverlessConfiguration: AWS = {
           },
         },
       ],
-      timeout: 30,
+      timeout: 60,
     },
   },
   package: { individually: true },
@@ -214,11 +220,11 @@ const serverlessConfiguration: AWS = {
       prod: "arn:aws:dynamodb:us-east-1:086563672363:table/Users-3phqsjzznfdxlnjnzszwzb6rjy-prod",
     },
     api_gateway_id: {
-      dev: "x0nk2m8hvi",
+      dev: "3aa3yts4zj",
       prod: "z5i64n32d6",
     },
     api_gateway_resourceid: {
-      dev: "eclownm620",
+      dev: "zah4kq66hf",
       prod: "xugqzpp4pb",
     },
     table_notification: {

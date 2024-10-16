@@ -36,6 +36,7 @@ provider:
     "TABLE_BUSINESS_NAME": "${self:custom.table_business_name.${opt:stage, self:provider.stage}}"
     "OPENSE_USERS_INDEX": "${self:custom.opense_user_index.${opt:stage, self:provider.stage}}"
     "QUEUE_USERS_CHANGE_LOCATION_NAME": ${cf:portatyv2-${self:provider.stage}.QueueUsersChangeLocation}
+    S3_BUCKET_NAME: "${self:custom.s3_bucket_name.${opt:stage, self:provider.stage}}"
   iam:
     role:
       statements:
@@ -71,10 +72,10 @@ provider:
             - arn:aws:es:us-east-1:086563672363:domain/portaty-opense/*
 custom:
   api_gateway_id:
-    dev: "x0nk2m8hvi"
+    dev: "3aa3yts4zj"
     prod: "z5i64n32d6"
   api_gateway_resourceid:
-    dev: "eclownm620"
+    dev: "zah4kq66hf"
     prod: "xugqzpp4pb"
   appsync_url:
     dev: "https://vkrtsagkivgqjgzbnhekkyusfm.appsync-api.us-east-1.amazonaws.com/graphql"
@@ -97,19 +98,19 @@ custom:
     prod: "QueuePromotionPublishedDLQ"
   table_business_promotion_name:
     dev: "BusinessPromotion-ehid2xtqobf75gakml3qgdj45m-dev"
-    prod: ""
+    prod: "BusinessPromotion-3phqsjzznfdxlnjnzszwzb6rjy-prod"
   arn_table_business_promotion:
     dev: "arn:aws:dynamodb:us-east-1:086563672363:table/BusinessPromotion-ehid2xtqobf75gakml3qgdj45m-dev"
-    prod: ""
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/BusinessPromotion-3phqsjzznfdxlnjnzszwzb6rjy-prod"
   table_business_promotion_stream:
     dev: "arn:aws:dynamodb:us-east-1:086563672363:table/BusinessPromotion-ehid2xtqobf75gakml3qgdj45m-dev/stream/2024-07-19T12:49:39.375"
-    prod: ""
+    prod: "arn:aws:dynamodb:us-east-1:086563672363:table/BusinessPromotion-3phqsjzznfdxlnjnzszwzb6rjy-prod/stream/2024-09-13T19:23:22.983"
   topic_business_promotion_name:
     dev: "TopicBusinessPromotiondev"
     prod: "TopicBusinessPromotion"
   queue_business_promotion_name:
     dev: "QueueBusinessPromotiondev"
-    prod: "QueuePromotion"
+    prod: "QueueBusinessPromotion"
   queue_dlq_business_promotion_name:
     dev: "QueueBusinessPromotionDLQdev"
     prod: "QueueBusinessPromotionDLQ"
@@ -125,6 +126,9 @@ custom:
   opense_user_index:
     dev: "users_dev"
     prod: "users"
+  s3_bucket_name:
+    dev: "s3professions202858-dev"
+    prod: "s3professions143312-prod"
 functions:
   userFavoritesPromotions:
     handler: functions/userFavoritesPromotions.handler
@@ -195,6 +199,7 @@ functions:
     layers:
       - arn:aws:lambda:us-east-1:086563672363:layer:layer_thumbnail:2
       - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+    timeout: 30
   sendNotificationUsersChangeLocation:
     handler: functions/sendNotificationUsersChangeLocation.handler
     events:

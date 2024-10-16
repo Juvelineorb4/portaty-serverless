@@ -182,12 +182,10 @@ def handler(event, context):
             print("IMAGEN ORIGINAL: ", originalData)
         if action == "create":
             if typeF == "profile":
-                originalKey = f"protected/{identityid}/business/{
-                    businessid}/profile.jpg"
+                originalKey = f"protected/{identityid}/business/{businessid}/profile.jpg"
                 thumbnailData = resize_image(
                     BytesIO(originalData), (1024, 1024))
-                thumbnailKey = f"protected/{identityid}/business/{
-                    businessid}/profile_thumbnail.jpg"
+                thumbnailKey = f"protected/{identityid}/business/{businessid}/profile_thumbnail.jpg"
                 s3.put_object(Body=originalData, Bucket=bucketName, Key=originalKey,
                               ContentType="image/jpeg", Metadata={"businessid": businessid})
                 s3.put_object(Body=thumbnailData, Bucket=bucketName, Key=thumbnailKey,
@@ -204,11 +202,9 @@ def handler(event, context):
                                for objeto in newArray], thumbnail)
             elif typeF == "extras":
                 numRan = random.randrange(100000, 999999)
-                originalKey = f"protected/{identityid}/business/{
-                    businessid}/extras/image_{numRan}.jpg"
+                originalKey = f"protected/{identityid}/business/{businessid}/extras/image_{numRan}.jpg"
                 date = getDateIso()
-                imageJson = {"key": key, "url": f"https://{bucketName}.s3.amazonaws.com/{
-                    originalKey}", "description": description, "businessid": businessid, "date": date}
+                imageJson = {"key": key, "url": f"https://{bucketName}.s3.amazonaws.com/{originalKey}", "description": description, "businessid": businessid, "date": date}
                 newArray = imagesObject
                 newArray.append(imageJson)
                 s3.put_object(Body=originalData, Bucket=bucketName, Key=originalKey,
@@ -219,12 +215,10 @@ def handler(event, context):
             if typeF == "profile":
                 if originalData != "":
                     numRan = random.randrange(100000, 999999)
-                    originalKey = f"protected/{identityid}/business/{
-                        businessid}/profile_{numRan}.jpg"
+                    originalKey = f"protected/{identityid}/business/{businessid}/profile_{numRan}.jpg"
                     thumbnailData = resize_image(
                         BytesIO(originalData), (360, 360))
-                    thumbnailKey = f"protected/{identityid}/business/{
-                        businessid}/profile_{numRan}_thumbnail.jpg"
+                    thumbnailKey = f"protected/{identityid}/business/{businessid}/profile_{numRan}_thumbnail.jpg"
 
                     s3.put_object(Body=thumbnailData, Bucket=bucketName, Key=thumbnailKey,
                                   ContentType="image/jpeg", Metadata={"businessid": businessid})
@@ -233,8 +227,7 @@ def handler(event, context):
 
                     thumbnail = f"https://{bucketName}.s3.amazonaws.com/{thumbnailKey}"
                     date = getDateIso()
-                    imageJSON = {"key": key, "url": f"https://{bucketName}.s3.amazonaws.com/{
-                        originalKey}", "description": description, "businessid": businessid, "date": date}
+                    imageJSON = {"key": key, "url": f"https://{bucketName}.s3.amazonaws.com/{originalKey}", "description": description, "businessid": businessid, "date": date}
                     newArray = imagesObject
                     newArray[int(key)] = imageJSON
                     # guardar en base de datos
@@ -252,11 +245,9 @@ def handler(event, context):
             elif typeF == "extras":
                 if originalData != "":
                     numRan = random.randrange(100000, 999999)
-                    originalKey = f"protected/{identityid}/business/{
-                        businessid}/image_{numRan}.jpg"
+                    originalKey = f"protected/{identityid}/business/{businessid}/image_{numRan}.jpg"
                     date = getDateIso()
-                    imageJSON = {"key": key, "url": f"https://{bucketName}.s3.amazonaws.com/{
-                        originalKey}", "description": description, "businessid": businessid, "date": date}
+                    imageJSON = {"key": key, "url": f"https://{bucketName}.s3.amazonaws.com/{originalKey}", "description": description, "businessid": businessid, "date": date}
                     newArray = imagesObject
                     newArray[int(key)] = imageJSON
                     s3.put_object(Body=originalData, Bucket=bucketName, Key=originalKey,
@@ -281,7 +272,7 @@ def handler(event, context):
         print("ERROR: ", e)
         response = {
             "statusCode": 500,
-            "body": json.dumps(e)
-        }
+            "body": json.dumps({"error": str(e)})
+            }
         return response
     # end try

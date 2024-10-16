@@ -18,6 +18,14 @@ provider:
     TABLE_USER: "${self:custom.table_user.${opt:stage, self:provider.stage}}"
     USER_POOL_ID: "${self:custom.cognito_user_pool_id.${opt:stage, self:provider.stage}}"
     ARN_TABLE_USER: "${self:custom.arn_table_user.${opt:stage, self:provider.stage}}"
+    OPENSE_ENDPONIT: "https://search-portaty-opense-f2pru5qxiz73a53c7fstafplnu.us-east-1.es.amazonaws.com"
+    OPENSE_INDEX: "${self:custom.opense_index.${opt:stage, self:provider.stage}}"
+    S3_BUCKET_NAME: "${self:custom.s3_bucket_name.${opt:stage, self:provider.stage}}"
+    APPSYNC_API_KEY: "${self:custom.appsync_key.${opt:stage, self:provider.stage}}"
+    APPSYNC_URL: "${self:custom.appsync_url.${opt:stage, self:provider.stage}}"
+    APPSYNC_ARN: "${self:custom.appsync_arn.${opt:stage, self:provider.stage}}"
+    OPENSE_INDEX_USERS: "${self:custom.opense_index_users.${opt:stage, self:provider.stage}}"
+
   iam:
     role:
       statements:
@@ -35,6 +43,20 @@ provider:
             - "cognito-idp:ListUsers"
           Resource:
             - "${self:provider.environment.ARN_COGNITO}"
+        - Effect: "Allow"
+          Action:
+            - "s3:*"
+          Resource: "*"
+        - Effect: "Allow"
+          Action:
+            - "es:*"
+          Resource:
+            - arn:aws:es:us-east-1:086563672363:domain/portaty-opense/*
+        - Effect: "Allow"
+          Action:
+            - "appsync:GraphQL"
+          Resource:
+            - ${self:provider.environment.APPSYNC_ARN}
 functions:
   getUsers:
     handler: functions/getUsers.handler
@@ -43,7 +65,93 @@ functions:
           path: admin/getUsers
           method: get
           cors: false
-
+  businessByCountry:
+    handler: functions/business/totalFilterbyCountry.handler
+    events:
+      - http:
+          path: admin/business/totalFilterbyCountry
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  usersByCountry:
+    handler: functions/users/totalFilterByCountry.handler
+    events:
+      - http:
+          path: admin/users/totalFilterbyCountry
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  uploadUsersDbToOpense:
+    handler: functions/users/uploadUsersDbToOpense.handler
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  userSummary:
+    handler: functions/users/summary.handler
+    events:
+      - http:
+          path: admin/users/summary
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  businessSummary:
+    handler: functions/business/summary.handler
+    events:
+      - http:
+          path: admin/business/summary
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  graphicsUsersTotalByCountry:
+    handler: functions/users/graphics/totalByCountry.handler
+    events:
+      - http:
+          path: admin/users/graphics/totalByCountry
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  graphicsBusinessTotalByCountry:
+    handler: functions/business/graphics/totalByCountry.handler
+    events:
+      - http:
+          path: admin/business/graphics/totalByCountry
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  tableUsersTotalByCountry:
+    handler: functions/users/table/totalByCountry.handler
+    events:
+      - http:
+          path: admin/users/table/totalByCountry
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  tableBusinessTotalByCountry:
+    handler: functions/business/table/totalByCountry.handler
+    events:
+      - http:
+          path: admin/business/table/totalByCountry
+          method: get
+    timeout: 30
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:opense_layer:2
+  bulkBusinessUpload:
+    handler: functions/business/bulkUpload.handler
+    events:
+      - s3:
+          bucket: "${self:custom.s3_bucket_name.${opt:stage, self:provider.stage}}"
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: "public/document/business/"
+            - suffix: .xlsx
+          existing: true
 custom:
   table_user:
     dev: "Users-ehid2xtqobf75gakml3qgdj45m-dev"
@@ -61,8 +169,26 @@ custom:
     dev: "arn:aws:dynamodb:us-east-1:086563672363:table/Users-ehid2xtqobf75gakml3qgdj45m-dev"
     prod: "arn:aws:dynamodb:us-east-1:086563672363:table/Users-3phqsjzznfdxlnjnzszwzb6rjy-prod"
   api_gateway_id:
-    dev: "x0nk2m8hvi"
+    dev: "3aa3yts4zj"
     prod: "z5i64n32d6"
   api_gateway_resourceid:
-    dev: "eclownm620"
+    dev: "zah4kq66hf"
     prod: "xugqzpp4pb"
+  appsync_url:
+    dev: "https://vkrtsagkivgqjgzbnhekkyusfm.appsync-api.us-east-1.amazonaws.com/graphql"
+    prod: "https://cq6hw4g7arg4jitnxitbhihhpu.appsync-api.us-east-1.amazonaws.com/graphql"
+  appsync_key:
+    dev: "da2-2ardlryjrvdl3cqdyrtz2ppq5i"
+    prod: "da2-x4g3fxoha5eeroeswkza7fznny"
+  appsync_arn:
+    dev: "arn:aws:appsync:us-east-1:086563672363:apis/ehid2xtqobf75gakml3qgdj45m/types/Mutation/fields/createBusinessPromotion"
+    prod: "arn:aws:appsync:us-east-1:086563672363:apis/3phqsjzznfdxlnjnzszwzb6rjy/types/Mutation/fields/createBusinessPromotion"
+  s3_bucket_name:
+    dev: "s3professions202858-dev"
+    prod: "s3professions143312-prod"
+  opense_index:
+    dev: "business_dev"
+    prod: "business"
+  opense_index_users:
+    dev: "users_dev"
+    prod: "users"

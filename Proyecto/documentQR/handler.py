@@ -28,8 +28,7 @@ def documentQr(event, context):
     # obtenemos las imagenes del logo y la del imageBase
     logoResponse = s3.get_object(
         Bucket=bucketName, Key=f"protected/{identityid}/business/{businessid}/profile_thumbnail.jpg")
-    imageBaseResponse = s3.get_object(Bucket=bucketName, Key=f"{
-                                      bucketKey}/portatyQR.jpg")
+    imageBaseResponse = s3.get_object(Bucket=bucketName, Key=f"{bucketKey}/portatyQR.jpg")
     logo = logoResponse["Body"].read()
     imageBase = imageBaseResponse["Body"].read()
 
@@ -51,8 +50,7 @@ def documentQr(event, context):
     # pdf_base64 = base64.b64encode(result).decode('utf-8')
     print(resultPDF)
     pathKey = f"protected/{identityid}/business/{businessid}/portatyQR.pdf"
-    resultSave = s3.put_object(
-        Body=resultPDF, Bucket=bucketName, Key=pathKey, ContentType="application/pdf")
+    resultSave = s3.put_object(Body=resultPDF, Bucket=bucketName, Key=pathKey, ContentType="application/pdf")
 
     response = {
         'statusCode': 200,
