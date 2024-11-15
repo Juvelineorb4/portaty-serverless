@@ -83,19 +83,18 @@ def handler(event, context):
         for hit in response_data["hits"]["hits"]:
             hit_coords = hit["_source"]["coordinates"]
             countryBusiness = get_country_from_coordinates(hit_coords["lon"], hit_coords["lat"])
+            total_fav = total_favorites(hit["_source"].get("id"))
+            print("TOTAL DE FAVORITOS", total_fav)
             viewsBusiness = total_views(hit["_source"].get("id"),hit["_source"].get("userID") )
-            # total_fav = total_favorites(hit["_source"].get("id"))
-            tags = hit["_source"].get("tags")
-            addressString = tags[5].get("value", None)
-            if addressString:
-                addressBusiness = json.loads(addressString)
-                countryB = addressBusiness.get("country", "")
-                cityB = addressBusiness.get("city","")
-                addressBusiness = f"{cityB}, {countryB}"
-            else:
-                addressBusiness = countryBusiness
+            # Uso dentro de tu función
+            tags = hit["_source"].get("tags", [])
+            addressBusiness = extract_address_from_tags(tags)
+
+            if addressBusiness is None:
+                addressBusiness = countryBusiness  # Usa el valor alternativo si no encuentras una dirección
+            
                 
-            print(addressBusiness)
+         
             business = {
                 "id": hit["_source"].get("id"),
                 "name": hit["_source"].get("name"),
@@ -113,7 +112,7 @@ def handler(event, context):
                 "userID": hit["_source"].get("userID"),
                 "whatsapp": hit["_source"].get("whatsapp"),
                 "phone": hit["_source"].get("phone"),
-                "favorites": 0,
+                "favorites": total_fav,
                 "country": countryBusiness,
                 "tags": hit["_source"].get("tags"),
                 "views": viewsBusiness,
@@ -228,13 +227,6 @@ def total_favorites(business_id):
     listFavorites(filter: $filter, limit: $limit, nextToken: $nextToken) {
       items {
         id
-        businessID
-        userID
-        position
-        owner
-        createdAt
-        updatedAt
-        __typename
       }
       nextToken
       __typename
@@ -283,7 +275,7 @@ def total_favorites(business_id):
         if not next_token:
             break
 
-    return total_items
+    return len(total_items)
 
 # Función para obtener el país basado en las coordenadas del negocio
 def get_country_from_coordinates(lon, lat):
@@ -321,3 +313,23 @@ def get_country_from_coordinates(lon, lat):
     except Exception as e:
         print(f"Error obteniendo el país desde OpenSearch: {str(e)}")
         return None
+
+
+
+# Función para extraer la dirección del tag que contiene el JSON con la dirección
+def extract_address_from_tags(tags):
+    for tag in tags:
+        try:
+            # Intentar convertir el valor del tag a JSON
+            address_data = json.loads(tag.get("value", "{}"))
+            
+            # Verificar que contiene los campos que esperas, como "city" o "country"
+            if "city" in address_data and "country" in address_data:
+                cityB = address_data.get("city", "")
+                countryB = address_data.get("country", "")
+                address = f"{cityB}, {countryB}"
+                return address  # Si encuentras la dirección, la devuelves
+        except (json.JSONDecodeError, KeyError):
+            # Si no es un JSON válido o no tiene los campos esperados, continúas
+            continue
+    return None  # Retorna None si no encuentras una dirección válida

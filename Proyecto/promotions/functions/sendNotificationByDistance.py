@@ -249,7 +249,7 @@ def handler(event, context):
                     input_data["message"]=  title
                 print("NOTIFICATION AL CREAR: ", input_data)
                 create_notification_user(input_data)
-                if email is not None:
+                if email != None and email != "":
                     # Cargar el contenido HTML desde S3
                     html_content = get_html_content_from_s3(bucketName, f"public/assets/html/promocion.html", {
                         '{business}': name,

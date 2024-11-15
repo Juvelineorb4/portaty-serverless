@@ -126,15 +126,12 @@ def handler(event, context):
             hit_coords = hit["_source"]["coordinates"]
             countryBusiness = get_country_from_coordinates(hit_coords["lon"], hit_coords["lat"])
             total_fav = total_favorites(hit["_source"].get("id"))
-            tags = hit["_source"].get("tags")
-            addressString = tags[5].get("value", None)
-            if addressString:
-                addressBusiness = json.loads(addressString)
-                countryB = addressBusiness.get("country", "")
-                cityB = addressBusiness.get("city", "")
-                addressBusiness = f"{cityB}, {countryB}"
-            else:
-                addressBusiness = countryBusiness
+           # Uso dentro de tu función
+            tags = hit["_source"].get("tags", [])
+            addressBusiness = extract_address_from_tags(tags)
+
+            if addressBusiness is None:
+                addressBusiness = countryBusiness  # Usa el valor alternativo si no encuentras una dirección
 
             # Obtener las vistas desde el diccionario resultTotal usando el business_id
             business_id = hit["_source"].get("id")
@@ -155,6 +152,7 @@ def handler(event, context):
                 "views": viewsBusiness,
                 "address": addressBusiness
             }
+            print(business)
             businesses.append(business)
 
         # Retornar éxito con los datos obtenidos
@@ -186,14 +184,15 @@ def total_views_for_all_businesses(business_ids):
         must_not_clauses = []
         
         for business in business_ids:
-            must_not_clauses.append({
-                "bool": {
-                    "must": [
-                        {"term": {"businessid.keyword": business["id"]}},
-                        {"term": {"userid.keyword": business["userID"]}}
-                    ]
-                }
-            })
+            if "userID" in business and business["userID"]:
+                must_not_clauses.append({
+                    "bool": {
+                        "must": [
+                            {"term": {"businessid.keyword": business["id"]}},
+                            {"term": {"userid.keyword": business["userID"]}}
+                        ]
+                    }
+                })
         
         # Construir la consulta con agregaciones para contar vistas de todos los negocios
         query = {
@@ -227,9 +226,10 @@ def total_views_for_all_businesses(business_ids):
 
         headers = {"Content-Type": "application/json"}
         # Realizar la consulta en OpenSearch
+        print("QUERY VIEWS: ", query)
         r = requests.get(f"{host}/events/_search", auth=awsauth, headers=headers, data=json.dumps(query))
         response_data = json.loads(r.text)
-
+        print("RESULT DE VISTAS: ", response_data)
         # Recoger las agregaciones para cada negocio
         business_views = {bucket['key']: bucket['doc_count'] for bucket in response_data['aggregations']['business_views']['buckets']}
         
@@ -376,3 +376,20 @@ def get_country_from_coordinates(lon, lat):
         print(f"Error obteniendo el país desde OpenSearch: {str(e)}")
         return None
 
+# Función para extraer la dirección del tag que contiene el JSON con la dirección
+def extract_address_from_tags(tags):
+    for tag in tags:
+        try:
+            # Intentar convertir el valor del tag a JSON
+            address_data = json.loads(tag.get("value", "{}"))
+            
+            # Verificar que contiene los campos que esperas, como "city" o "country"
+            if "city" in address_data and "country" in address_data:
+                cityB = address_data.get("city", "")
+                countryB = address_data.get("country", "")
+                address = f"{cityB}, {countryB}"
+                return address  # Si encuentras la dirección, la devuelves
+        except (json.JSONDecodeError, KeyError):
+            # Si no es un JSON válido o no tiene los campos esperados, continúas
+            continue
+    return None  # Retorna None si no encuentras una dirección válida

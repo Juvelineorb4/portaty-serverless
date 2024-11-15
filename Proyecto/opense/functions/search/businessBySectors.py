@@ -23,7 +23,7 @@ bucketName = os.environ.get("S3_BUCKET_NAME")
 sector_names = [
     "Construcción y Mantenimiento", "Salud", "Legal y Financiero", "Ingeniería y Tecnología",
     "Comercio", "Alimentación", "Transporte", "Hospedaje y Vivienda", "Deporte y Recreación",
-    "Educación", "Evaluación y Consultoría"
+    "Educación", "Evaluación y Consultoría", "Iglesias"
 ]
 
 # Configuración de OpenSearch
@@ -131,7 +131,7 @@ def handler(event, context):
                 }
             }
         }
-
+        print("query",query)
         # Ejecutar la consulta en OpenSearch
         response = opense.search(body=query, index=index)
         total = response["hits"]["total"]["value"]

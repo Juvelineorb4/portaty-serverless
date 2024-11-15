@@ -37,7 +37,8 @@ sector_names = [
     "Hospedaje y Vivienda",
     "Deporte y Recreación",
     "Educación",
-    "Evaluación y Consultoría"
+    "Evaluación y Consultoría",
+    "Iglesias"
 ]
 
 # Configuración de OpenSearch

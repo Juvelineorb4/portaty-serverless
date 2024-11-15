@@ -4,13 +4,21 @@ import os
 # Inicializamos el cliente de Cognito
 cognito_client = boto3.client('cognito-idp')
 
-OLD_USER_POOL_ID = os.environ['OLD_COGNITO_USER_POOL_ID']
-OLD_USER_POOL_CLIENT_ID = os.environ['OLD_COGNITO_USER_POOL_CLIENT_ID']
+# Validación de variables de entorno
+try:
+    OLD_USER_POOL_ID = os.environ['OLD_COGNITO_USER_POOL_ID']
+    OLD_USER_POOL_CLIENT_ID = os.environ['OLD_COGNITO_USER_POOL_CLIENT_ID']
+except KeyError as e:
+    raise Exception(f"Falta una variable de entorno necesaria: {str(e)}")
 
 def handler(event, context):
     print("EVENT: ", event)
-    username = event['userName']
-    password = event['request']['password']
+    username = event.get('userName')
+    password = event['request'].get('password')
+
+    # Validar que el evento contiene el nombre de usuario y la contraseña
+    if not username or not password:
+        raise ValueError("Nombre de usuario o contraseña no proporcionados en el evento")
 
     print(f"Intentando autenticar usuario: {username}")
 
@@ -38,28 +46,38 @@ def handler(event, context):
         user_attributes = {attr['Name']: attr['Value'] for attr in user_response['UserAttributes'] if attr['Name'] != 'sub'}
         print(f"Atributos del usuario (sin 'sub'): {user_attributes}")
 
-        # Convertir atributos a formato esperado para el nuevo User Pool
+        # Almacenar el antiguo sub en el nuevo atributo personalizado custom:oldSub
+        old_sub = next(attr['Value'] for attr in user_response['UserAttributes'] if attr['Name'] == 'sub')
         migrated_attributes = [{'Name': key, 'Value': value} for key, value in user_attributes.items()]
+        migrated_attributes.append({'Name': 'custom:oldSub', 'Value': old_sub})
+        print(f"Old sub almacenado en custom:oldSub: {old_sub}")
 
-        # Confirmar el correo electrónico
-        if 'email' in user_attributes:
+        # Confirmar el correo electrónico si existe y está verificado en el User Pool viejo
+        if 'email' in user_attributes and 'email_verified' not in user_attributes:
             migrated_attributes.append({'Name': 'email_verified', 'Value': 'true'})
 
         # Configurar la respuesta de la Lambda para Cognito
         event['response']['userAttributes'] = user_attributes
         event['response']['userAttributes']['email_verified'] = 'true'
+        event['response']['userAttributes']['custom:oldSub'] = old_sub
         event['response']['finalUserStatus'] = 'CONFIRMED'
         event['response']['messageAction'] = 'SUPPRESS'
-
+        print("EVENT RESPONSE: ",event['response'] )
         print("Configuración de respuesta completada para Cognito")
         return event
         
     except cognito_client.exceptions.NotAuthorizedException:
-        print("Error: Credenciales inválidas.")
+        print("Error: Credenciales inválidas para el usuario.")
         raise Exception("Credenciales inválidas.")
     except cognito_client.exceptions.UserNotFoundException:
         print("Error: Usuario no encontrado en el User Pool viejo.")
         raise Exception("Usuario no encontrado.")
+    except cognito_client.exceptions.ResourceNotFoundException:
+        print("Error: El User Pool o el cliente de User Pool especificado no existe.")
+        raise Exception("User Pool o User Pool Client no encontrado.")
+    except cognito_client.exceptions.InvalidParameterException as e:
+        print(f"Error: Parámetros inválidos - {str(e)}")
+        raise Exception("Error en parámetros de autenticación.")
     except Exception as e:
         print(f"Error durante la migración: {str(e)}")
-        raise e
+        raise Exception(f"Error inesperado durante la migración: {str(e)}")

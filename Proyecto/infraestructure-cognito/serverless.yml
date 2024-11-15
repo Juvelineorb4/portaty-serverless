@@ -16,13 +16,21 @@ provider:
       Fn::GetAtt: [CognitoUserPool, Arn]
     COGNITO_USER_POOL_ID:
       Ref: CognitoUserPool
+    # COGNITO_IDENTITY_POOL_ID:
+    #   Ref: CognitoIdentityPool
     S3_BUCKET_ARN: "${self:custom.s3_bucket_arn.${opt:stage, self:provider.stage}}"
     FIREHOSE_ARN: "${self:custom.firehose_arn.${opt:stage, self:provider.stage}}"
     APPSYNC_ARN: "${self:custom.appsync_arn.${opt:stage, self:provider.stage}}"
     GOOGLE_CLIENT_ID: "${self:custom.google_client_id.${opt:stage, self:provider.stage}}"
     GOOGLE_CLIENT_SECRET: "${self:custom.google_client_secret.${opt:stage, self:provider.stage}}"
+    OLD_COGNITO_USER_POOL_ID: "${self:custom.old_cognito_user_pool_id.${opt:stage, self:provider.stage}}"
+    OLD_COGNITO_USER_POOL_CLIENT_ID: "${self:custom.old_cognito_user_pool_client_id.${opt:stage, self:provider.stage}}"
     OLD_COGNITO_USER_POOL_ARN: "${self:custom.old_cognito_user_pool_arn.${opt:stage, self:provider.stage}}"
-  # Agregamos la política de IAM
+    # AUTH_ROLE_ARN:
+    #   Fn::GetAtt: [CognitoAuthRole, Arn]
+    # UNAUTH_ROLE_ARN:
+    #   Fn::GetAtt: [CognitoUnauthRole, Arn]
+
   iam:
     role:
       statements:
@@ -35,6 +43,7 @@ provider:
           Resource:
             - ${self:provider.environment.COGNITO_USER_POOL_ARN}
             - ${self:provider.environment.OLD_COGNITO_USER_POOL_ARN}
+
 custom:
   user_pool_name:
     dev: portaty-dev
@@ -70,9 +79,6 @@ custom:
 functions:
   userMigration:
     handler: functions/userMigration.handler
-    environment:
-      OLD_COGNITO_USER_POOL_ID: "${self:custom.old_cognito_user_pool_id.${opt:stage, self:provider.stage}}"
-      OLD_COGNITO_USER_POOL_CLIENT_ID: "${self:custom.old_cognito_user_pool_client_id.${opt:stage, self:provider.stage}}"
     events:
       - cognitoUserPool:
           pool: ${self:provider.environment.COGNITO_USER_POOL_NAME}
@@ -111,13 +117,13 @@ functions:
           trigger: PostAuthentication
           existing: true
 
-  preTokenGeneration:
-    handler: functions/preTokenGeneration.handler
-    events:
-      - cognitoUserPool:
-          pool: ${self:provider.environment.COGNITO_USER_POOL_NAME}
-          trigger: PreTokenGeneration
-          existing: true
+# preTokenGeneration:
+#   handler: functions/preTokenGeneration.handler
+#   events:
+#     - cognitoUserPool:
+#         pool: ${self:provider.environment.COGNITO_USER_POOL_NAME}
+#         trigger: PreTokenGeneration
+#         existing: true
 
 resources:
   Resources:
@@ -129,9 +135,6 @@ resources:
           - email
         AutoVerifiedAttributes:
           - email
-        EmailVerificationMessage: "Tu código de verificación es {####}. Introduce este código para completar tu registro en Portaty."
-        EmailVerificationSubject: "Tu codigo de verificacion es {####}"
-        MfaConfiguration: "OFF"
         Schema:
           - Name: email
             AttributeDataType: String
@@ -165,6 +168,10 @@ resources:
             AttributeDataType: String
             Required: false
             Mutable: true
+          - Name: oldSub
+            AttributeDataType: String
+            Required: false
+            Mutable: true
         Policies:
           PasswordPolicy:
             MinimumLength: 8
@@ -172,79 +179,41 @@ resources:
             RequireLowercase: false
             RequireNumbers: false
             RequireSymbols: false
-        UserAttributeUpdateSettings:
-          AttributesRequireVerificationBeforeUpdate:
-            - email
-        UsernameConfiguration:
-          CaseSensitive: false
-
         AccountRecoverySetting:
           RecoveryMechanisms:
             - Priority: 1
               Name: verified_email
 
-    CognitoUserPoolClientWeb:
-      Type: AWS::Cognito::UserPoolClient
-      Properties:
-        UserPoolId:
-          Ref: CognitoUserPool
-        AllowedOAuthFlows:
-          - code
-        AllowedOAuthFlowsUserPoolClient: true
-        AllowedOAuthScopes:
-          - email
-          - openid
-          - profile
-          - aws.cognito.signin.user.admin
-        CallbackURLs:
-          - exp://192.168.2.21:8081/
-        LogoutURLs:
-          - exp://192.168.2.21:8081/
-        ClientName: user-pool-clientWeb-portaty-${self:provider.stage}
-        RefreshTokenValidity: 30
-        SupportedIdentityProviders:
-          - Google
-          - COGNITO
-        TokenValidityUnits:
-          RefreshToken: days
-      DependsOn:
-        - CognitoUserPool
-        - CognitoGoogleIdentityProvider
-
     CognitoUserPoolClient:
       Type: AWS::Cognito::UserPoolClient
       Properties:
+        ClientName: user-pool-client
         UserPoolId:
           Ref: CognitoUserPool
+        ExplicitAuthFlows:
+          - ALLOW_USER_SRP_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_CUSTOM_AUTH
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_ADMIN_USER_PASSWORD_AUTH
+
+        GenerateSecret: false
         AllowedOAuthFlows:
           - code
-        AllowedOAuthFlowsUserPoolClient: true
+          - implicit
+        AllowedOAuthFlowsUserPoolClient: true # Esto es crucial para permitir OAuth en el App Client
         AllowedOAuthScopes:
           - email
           - openid
           - profile
           - aws.cognito.signin.user.admin
+        SupportedIdentityProviders: # Habilitar IdP explícitamente
+          - COGNITO # IdP nativo de Cognito
+          - Google # Habilitar Google como IdP
         CallbackURLs:
           - exp://192.168.2.21:8081/
         LogoutURLs:
           - exp://192.168.2.21:8081/
-        ClientName: user-pool-client-portaty-${self:provider.stage}
-        GenerateSecret: false
-        RefreshTokenValidity: 30
-        SupportedIdentityProviders:
-          - Google
-          - COGNITO
-        TokenValidityUnits:
-          RefreshToken: days
-        ExplicitAuthFlows:
-          - ALLOW_USER_SRP_AUTH
-          - ALLOW_USER_PASSWORD_AUTH
-          - ALLOW_REFRESH_TOKEN_AUTH
-          - ALLOW_ADMIN_USER_PASSWORD_AUTH
-
-      DependsOn:
-        - CognitoUserPool
-        - CognitoGoogleIdentityProvider
 
     CognitoUserPoolDomain:
       Type: AWS::Cognito::UserPoolDomain
@@ -252,8 +221,220 @@ resources:
         Domain: portaty-${self:provider.stage}
         UserPoolId:
           Ref: CognitoUserPool
-      DependsOn:
-        - CognitoUserPool
+
+    # CognitoIdentityPool:
+    #   Type: AWS::Cognito::IdentityPool
+    #   Properties:
+    #     IdentityPoolName: portaty-${self:provider.stage}-identity-pool1
+    #     AllowUnauthenticatedIdentities: true
+    #     CognitoIdentityProviders:
+    #       - ClientId:
+    #           Ref: CognitoUserPoolClient
+    #         ProviderName:
+    #           Fn::Sub: "cognito-idp.${self:provider.region}.amazonaws.com/${CognitoUserPool}"
+    #     SupportedLoginProviders:
+    #       accounts.google.com: ${self:provider.environment.GOOGLE_CLIENT_ID}
+
+    # CognitoAuthRole:
+    #   Type: AWS::IAM::Role
+    #   Properties:
+    #     RoleName: portaty-${self:provider.stage}-authRole
+    #     AssumeRolePolicyDocument:
+    #       Version: "2012-10-17"
+    #       Statement:
+    #         - Effect: Allow
+    #           Principal:
+    #             Federated: "cognito-identity.amazonaws.com"
+    #           Action: "sts:AssumeRoleWithWebIdentity"
+    #           Condition:
+    #             StringEquals:
+    #               cognito-identity.amazonaws.com:aud:
+    #                 Ref: CognitoIdentityPool
+    #             "ForAnyValue:StringLike":
+    #               cognito-identity.amazonaws.com:amr: authenticated
+    #     Policies:
+    #       - PolicyName: AuthAccessS3Private
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Effect: Allow
+    #               Action:
+    #                 - "s3:PutObject"
+    #                 - "s3:GetObject"
+    #                 - "s3:DeleteObject"
+    #               Resource:
+    #                 - Fn::Sub:
+    #                     - "${BucketArn}/private/$${CognitoSub}/*"
+    #                     - BucketArn: ${self:provider.environment.S3_BUCKET_ARN}
+    #                       CognitoSub: "{cognito-identity.amazonaws.com:sub}"
+
+    #       - PolicyName: AuthAccessS3Protected
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Effect: Allow
+    #               Action:
+    #                 - "s3:PutObject"
+    #                 - "s3:GetObject"
+    #                 - "s3:DeleteObject"
+    #               Resource:
+    #                 - Fn::Sub:
+    #                     - "${BucketArn}/protected/$${CognitoSub}/*"
+    #                     - BucketArn: ${self:provider.environment.S3_BUCKET_ARN}
+    #                       CognitoSub: "{cognito-identity.amazonaws.com:sub}"
+
+    #       - PolicyName: AuthAccessS3Public
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Effect: Allow
+    #               Action:
+    #                 - "s3:PutObject"
+    #                 - "s3:GetObject"
+    #                 - "s3:DeleteObject"
+    #               Resource:
+    #                 - "${self:provider.environment.S3_BUCKET_ARN}/public/*"
+
+    #       - PolicyName: AuthAccessS3Read
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Effect: Allow
+    #               Action: "s3:GetObject"
+    #               Resource:
+    #                 - "${self:provider.environment.S3_BUCKET_ARN}/protected/*"
+    #             - Effect: Allow
+    #               Action: "s3:ListBucket"
+    #               Condition:
+    #                 StringLike:
+    #                   "s3:prefix":
+    #                     - "public/"
+    #                     - "public/*"
+    #                     - "protected/"
+    #                     - "protected/*"
+    #                     - Fn::Sub:
+    #                         - "private/$${CognitoSub}/"
+    #                         - CognitoSub: "{cognito-identity.amazonaws.com:sub}"
+    #                     - Fn::Sub:
+    #                         - "private/$${CognitoSub}/"
+    #                         - CognitoSub: "{cognito-identity.amazonaws.com:sub}/*"
+    #               Resource: "${self:provider.environment.S3_BUCKET_ARN}"
+
+    #       - PolicyName: AuthAccessS3Uploads
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Effect: Allow
+    #               Action: "s3:PutObject"
+    #               Resource:
+    #                 - "${self:provider.environment.S3_BUCKET_ARN}/uploads/*"
+    #         # Nueva política para Kinesis Firehose
+    #       - PolicyName: AuthAccessFirehose
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Sid: "VisualEditor0"
+    #               Effect: "Allow"
+    #               Action:
+    #                 - "firehose:PutRecord"
+    #                 - "firehose:PutRecordBatch"
+    #               Resource:
+    #                 - ${self:provider.environment.FIREHOSE_ARN}
+    #             - Sid: "VisualEditor1"
+    #               Effect: "Allow"
+    #               Action: "firehose:ListDeliveryStreams"
+    #               Resource: "*"
+    #       - PolicyName: AuthAccessAppSync
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Sid: "VisualEditor0"
+    #               Effect: "Allow"
+    #               Action:
+    #                 - "appsync:GraphQL"
+    #               Resource:
+    #                 - ${self:provider.environment.APPSYNC_ARN}/types/*
+    # CognitoUnauthRole:
+    #   Type: AWS::IAM::Role
+    #   Properties:
+    #     RoleName: portaty-${self:provider.stage}-unauthRole
+    #     AssumeRolePolicyDocument:
+    #       Version: "2012-10-17"
+    #       Statement:
+    #         - Effect: Allow
+    #           Principal:
+    #             Federated: "cognito-identity.amazonaws.com"
+    #           Action: "sts:AssumeRoleWithWebIdentity"
+    #           Condition:
+    #             StringEquals:
+    #               cognito-identity.amazonaws.com:aud:
+    #                 Ref: CognitoIdentityPool
+    #             "ForAnyValue:StringLike":
+    #               cognito-identity.amazonaws.com:amr: unauthenticated
+    #     Policies:
+    #       - PolicyName: UnAuthAccessFirehose
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Sid: "VisualEditor0"
+    #               Effect: "Allow"
+    #               Action:
+    #                 - "firehose:PutRecord"
+    #                 - "firehose:PutRecordBatch"
+    #               Resource:
+    #                 - ${self:provider.environment.FIREHOSE_ARN}
+    #             - Sid: "VisualEditor1"
+    #               Effect: "Allow"
+    #               Action: "firehose:ListDeliveryStreams"
+    #               Resource: "*"
+    #       - PolicyName: UnAuthAccessS3Public
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Effect: Allow
+    #               Action:
+    #                 - "s3:GetObject"
+    #               Resource:
+    #                 - "${self:provider.environment.S3_BUCKET_ARN}/public/*"
+    #       - PolicyName: UnAuthAccessS3Read
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Effect: Allow
+    #               Action: "s3:GetObject"
+    #               Resource:
+    #                 - "${self:provider.environment.S3_BUCKET_ARN}/protected/*"
+    #             - Effect: Allow
+    #               Action: "s3:ListBucket"
+    #               Condition:
+    #                 StringLike:
+    #                   "s3:prefix":
+    #                     - "public/"
+    #                     - "public/*"
+    #                     - "protected/"
+    #                     - "protected/*"
+    #               Resource: "${self:provider.environment.S3_BUCKET_ARN}"
+    #       - PolicyName: UnAuthAccessAppSync
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Sid: "VisualEditor0"
+    #               Effect: "Allow"
+    #               Action:
+    #                 - "appsync:GraphQL"
+    #               Resource:
+    #                 - ${self:provider.environment.APPSYNC_ARN}/types/*
+
+    # CognitoIdentityPoolRoleAttachment:
+    #   Type: "AWS::Cognito::IdentityPoolRoleAttachment"
+    #   Properties:
+    #     IdentityPoolId:
+    #       Ref: CognitoIdentityPool
+    #     Roles:
+    #       authenticated:
+    #         Fn::GetAtt: [CognitoAuthRole, Arn]
+    #       unauthenticated:
+    #         Fn::GetAtt: [CognitoUnauthRole, Arn]
 
     CognitoGoogleIdentityProvider:
       Type: AWS::Cognito::UserPoolIdentityProvider
@@ -268,8 +449,135 @@ resources:
           authorize_scopes: "openid profile email"
         AttributeMapping:
           email: email
-      DependsOn:
-        - CognitoUserPool
+
+    # UpdateRolesWithIDPFunction:
+    #   Type: AWS::Lambda::Function
+    #   DependsOn:
+    #     - CognitoUnauthRole
+    #     - CognitoAuthRole
+    #   Properties:
+    #     Code:
+    #       ZipFile: |
+    #         const response = require('cfn-response');
+    #         const { IAMClient, GetRoleCommand, UpdateAssumeRolePolicyCommand } = require('@aws-sdk/client-iam');
+    #         exports.handler = function(event, context) {
+    #             // Don't return promise, response.send() marks context as done internally
+    #             const ignoredPromise = handleEvent(event, context);
+    #         };
+    #         async function handleEvent(event, context) {
+    #             try {
+    #                 let authRoleName = event.ResourceProperties.authRoleName;
+    #                 let unauthRoleName = event.ResourceProperties.unauthRoleName;
+    #                 let idpId = event.ResourceProperties.idpId;
+    #                 let authParamsJson = {
+    #                     'Version': '2012-10-17',
+    #                     'Statement': [{
+    #                         'Effect': 'Allow',
+    #                         'Principal': {'Federated': 'cognito-identity.amazonaws.com'},
+    #                         'Action': 'sts:AssumeRoleWithWebIdentity',
+    #                         'Condition': {
+    #                             'StringEquals': {'cognito-identity.amazonaws.com:aud': idpId},
+    #                             'ForAnyValue:StringLike': {'cognito-identity.amazonaws.com:amr': 'authenticated'}
+    #                         }
+    #                     }]
+    #                 };
+    #                 let unauthParamsJson = {
+    #                     'Version': '2012-10-17',
+    #                     'Statement': [{
+    #                         'Effect': 'Allow',
+    #                         'Principal': {'Federated': 'cognito-identity.amazonaws.com'},
+    #                         'Action': 'sts:AssumeRoleWithWebIdentity',
+    #                         'Condition': {
+    #                             'StringEquals': {'cognito-identity.amazonaws.com:aud': idpId},
+    #                             'ForAnyValue:StringLike': {'cognito-identity.amazonaws.com:amr': 'unauthenticated'}
+    #                         }
+    #                     }]
+    #                 };
+    #                 if (event.RequestType === 'Delete') {
+    #                     try {
+    #                         delete authParamsJson.Statement[0].Condition;
+    #                         delete unauthParamsJson.Statement[0].Condition;
+    #                         authParamsJson.Statement[0].Effect = 'Deny';
+    #                         unauthParamsJson.Statement[0].Effect = 'Deny';
+    #                         let authParams = {PolicyDocument: JSON.stringify(authParamsJson), RoleName: authRoleName};
+    #                         let unauthParams = {PolicyDocument: JSON.stringify(unauthParamsJson), RoleName: unauthRoleName};
+    #                         const iam = new IAMClient({region: event.ResourceProperties.region});
+    #                         let res = await Promise.all([
+    #                             iam.send(new GetRoleCommand({RoleName: authParams.RoleName})),
+    #                             iam.send(new GetRoleCommand({RoleName: unauthParams.RoleName}))
+    #                         ]);
+    #                         res = await Promise.all([
+    #                             iam.send(new UpdateAssumeRolePolicyCommand(authParams)),
+    #                             iam.send(new UpdateAssumeRolePolicyCommand(unauthParams))
+    #                         ]);
+    #                         response.send(event, context, response.SUCCESS, {});
+    #                     } catch (err) {
+    #                         console.log(err.stack);
+    #                         response.send(event, context, response.SUCCESS, {Error: err});
+    #                     }
+    #                 } else if (event.RequestType === 'Update' || event.RequestType === 'Create') {
+    #                     const iam = new IAMClient({region: event.ResourceProperties.region});
+    #                     let authParams = {PolicyDocument: JSON.stringify(authParamsJson), RoleName: authRoleName};
+    #                     let unauthParams = {PolicyDocument: JSON.stringify(unauthParamsJson), RoleName: unauthRoleName};
+    #                     const res = await Promise.all([
+    #                         iam.send(new UpdateAssumeRolePolicyCommand(authParams)),
+    #                         iam.send(new UpdateAssumeRolePolicyCommand(unauthParams))
+    #                     ]);
+    #                     response.send(event, context, response.SUCCESS, {});
+    #                 }
+    #             } catch (err) {
+    #                 console.log(err.stack);
+    #                 response.send(event, context, response.FAILED, {Error: err});
+    #             }
+    #         }
+    #     Handler: index.handler
+    #     Runtime: nodejs18.x
+    #     Timeout: 300
+    #     Role:
+    #       Fn::GetAtt:
+    #         - UpdateRolesWithIDPFunctionRole
+    #         - Arn
+
+    # # 6. Lambda Role
+    # UpdateRolesWithIDPFunctionRole:
+    #   Type: AWS::IAM::Role
+    #   Properties:
+    #     RoleName: portaty-updateRolesWithIDPFunctionRole-${self:provider.stage}
+    #     AssumeRolePolicyDocument:
+    #       Version: "2012-10-17"
+    #       Statement:
+    #         - Effect: Allow
+    #           Principal:
+    #             Service: lambda.amazonaws.com
+    #           Action: sts:AssumeRole
+    #     Policies:
+    #       - PolicyName: portaty-updateRolesWithIDPPolicy-${self:provider.stage}
+    #         PolicyDocument:
+    #           Version: "2012-10-17"
+    #           Statement:
+    #             - Effect: Allow
+    #               Action:
+    #                 - iam:GetRole
+    #                 - iam:UpdateAssumeRolePolicy
+    #               Resource:
+    #                 - "${self:provider.environment.AUTH_ROLE_ARN}"
+    #                 - "${self:provider.environment.UNAUTH_ROLE_ARN}"
+
+    # UpdateRolesWithIDPFunctionOutputs:
+    #   Type: Custom::LambdaCallout
+    #   Properties:
+    #     ServiceToken:
+    #       Fn::GetAtt:
+    #         - UpdateRolesWithIDPFunction
+    #         - Arn
+    #     region:
+    #       Ref: AWS::Region
+    #     idpId:
+    #       Ref: CognitoIdentityPool
+    #     authRoleName:
+    #       Ref: CognitoAuthRole
+    #     unauthRoleName:
+    #       Ref: CognitoUnauthRole
 
   Outputs:
     CognitoUserPoolId:
@@ -287,25 +595,12 @@ resources:
       Value:
         Ref: CognitoUserPoolClient
 
-    CognitoUserPoolClientWebId:
-      Description: "ID del Cognito User Pool Client"
-      Value:
-        Ref: CognitoUserPoolClientWeb
-
     CognitoUserPoolDomain:
       Description: "Dominio del Cognito User Pool"
       Value:
         Ref: CognitoUserPoolDomain
 
-    CognitoIdentityProviderName:
-      Description: "Nombre del Provider para Cognito Identity Pool"
-      Value:
-        Fn::Sub:
-          - cognito-idp.${region}.amazonaws.com/${CognitoUserPool}
-          - region: ${self:provider.region}
-            CognitoUserPool:
-              Ref: CognitoUserPool
-    CognitoIdentityProviderName2:
-      Description: "Nombre del Provider para Cognito Identity Pool"
-      Value:
-        Fn::Sub: "cognito-idp.${self:provider.region}.amazonaws.com/${CognitoUserPool}"
+    # CognitoIdentityPoolId:
+    #   Description: "ID del Cognito Identity Pool"
+    #   Value:
+    #     Ref: CognitoIdentityPool

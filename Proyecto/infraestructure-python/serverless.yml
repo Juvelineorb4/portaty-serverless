@@ -42,6 +42,15 @@ provider:
     "TOPIC_USERS_SEND_EMAIL_ARN":
       Ref: TopicUsersSendEmail
     "S3_BUCKET_NAME": "${self:custom.s3_bucket_name.${opt:stage, self:provider.stage}}"
+    "TOPIC_SEND_NOTIFICATION_NAME": "${self:custom.topic_notification_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_PUSH_NOTIFICATION_NAME": "${self:custom.queue_push_notification_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_USER_NOTIFICATION_DB_NAME": "${self:custom.queue_user_notification_db_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_SEND_EMAIL_NAME": "${self:custom.queue_send_email_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_DLQ_PUSH_NOTIFICATION_NAME": "${self:custom.queue_dlq_push_notification_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_DLQ_USER_NOTIFICATION_DB_NAME": "${self:custom.queue_dlq_user_notification_db_name.${opt:stage, self:provider.stage}}"
+    "QUEUE_DLQ_SEND_EMAIL_NAME": "${self:custom.queue_dlq_send_email_name.${opt:stage, self:provider.stage}}"
+    "APPSYNC_URL": "${self:custom.appsync_url.${opt:stage, self:provider.stage}}"
+    "APPSYNC_API_KEY": "${self:custom.appsync_key.${opt:stage, self:provider.stage}}"
 
   apiGateway:
     minimumCompressionSize: 1024
@@ -125,6 +134,34 @@ custom:
   s3_bucket_name:
     dev: "s3professions202858-dev"
     prod: "s3professions143312-prod"
+  topic_notification_name:
+    dev: "TopicSendNotificationdev"
+    prod: "TopicSendNotificationd"
+  queue_push_notification_name:
+    dev: "QueuePushNotificationdev"
+    prod: "QueuePushNotification"
+  queue_user_notification_db_name:
+    dev: "QueueUserNotificationdev"
+    prod: "QueueUserNotification"
+  queue_send_email_name:
+    dev: "QueueSendEmaildev"
+    prod: "QueueSendEmail"
+  queue_dlq_push_notification_name:
+    dev: "QueuePushNotificationDLQdev"
+    prod: "QueuePushNotificationDLQ"
+  queue_dlq_user_notification_db_name:
+    dev: "QueueUserNotificationDLQdev"
+    prod: "QueueUserNotificationDLQ"
+  queue_dlq_send_email_name:
+    dev: "QueueSendEmailDLQdev"
+    prod: "QueueSendEmailDLQ"
+  appsync_url:
+    dev: "https://vkrtsagkivgqjgzbnhekkyusfm.appsync-api.us-east-1.amazonaws.com/graphql"
+    prod: "https://cq6hw4g7arg4jitnxitbhihhpu.appsync-api.us-east-1.amazonaws.com/graphql"
+  appsync_key:
+    dev: "da2-2ardlryjrvdl3cqdyrtz2ppq5i"
+    prod: "da2-x4g3fxoha5eeroeswkza7fznny"
+
 functions:
   test:
     handler: handler.hello
@@ -182,6 +219,34 @@ functions:
             Fn::GetAtt:
               - QueueUsersSendEmail
               - Arn
+  sendEmail:
+    handler: functions/sendEmail.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - QueueSendEmail
+              - Arn
+  userNotificationDB:
+    handler: functions/userNotificationDB.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - QueueUserNotificationDB
+              - Arn
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
+  sendPushNotification:
+    handler: functions/sendPushNotification.handler
+    events:
+      - sqs:
+          arn:
+            Fn::GetAtt:
+              - QueuePushNotification
+              - Arn
+    layers:
+      - arn:aws:lambda:us-east-1:086563672363:layer:openSearchBusinessSync:3
 
 resources:
   Resources:
@@ -463,6 +528,143 @@ resources:
         Queues:
           - "${self:provider.environment.QUEUE_USERS_SEND_EMAIL_NAME}"
 
+    # crea un sns unico para envios de notificaciones o email o ambos
+    #SQS
+    # #SEND PUSH NOTIFICATION
+    QueuePushNotification:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_PUSH_NOTIFICATION_NAME}"
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - QueueSendEmailDLQ
+              - Arn
+          maxReceiveCount: 3
+    # DLQ
+    QueuePushNotificationDLQ:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_DLQ_PUSH_NOTIFICATION_NAME}"
+
+    # #SEND USER NOTIFICATION DB
+    QueueUserNotificationDB:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_USER_NOTIFICATION_DB_NAME}"
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - QueueSendEmailDLQ
+              - Arn
+          maxReceiveCount: 3
+    # DLQ
+    QueueUserNotificationDBDLQ:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_DLQ_USER_NOTIFICATION_DB_NAME}"
+
+    # #SEND EMAIL
+    QueueSendEmail:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_SEND_EMAIL_NAME}"
+        RedrivePolicy:
+          deadLetterTargetArn:
+            Fn::GetAtt:
+              - QueueSendEmailDLQ
+              - Arn
+          maxReceiveCount: 3
+    # DLQ
+    QueueSendEmailDLQ:
+      Type: "AWS::SQS::Queue"
+      Properties:
+        QueueName: "${self:provider.environment.QUEUE_DLQ_SEND_EMAIL_NAME}"
+
+    # #TOPIC
+    TopicSendNotification:
+      Type: AWS::SNS::Topic
+      Properties:
+        TopicName: "${self:provider.environment.TOPIC_SEND_NOTIFICATION_NAME}"
+
+    # # politica para que el sns notification pueda enviar a sus respectivas colcas
+    QueuePolicyNotification:
+      Type: AWS::SQS::QueuePolicy
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "sqs:SendMessage"
+              Resource:
+                - Fn::GetAtt:
+                    - QueueSendEmail
+                    - Arn
+                - Fn::GetAtt:
+                    - QueueUserNotificationDB
+                    - Arn
+                - Fn::GetAtt:
+                    - QueuePushNotification
+                    - Arn
+              Principal:
+                Service: "sns.amazonaws.com"
+              Condition:
+                ArnEquals:
+                  "aws:SourceArn":
+                    Ref: TopicSendNotification
+        Queues:
+          - "${self:provider.environment.QUEUE_SEND_EMAIL_NAME}"
+          - "${self:provider.environment.QUEUE_USER_NOTIFICATION_DB_NAME}"
+          - "${self:provider.environment.QUEUE_PUSH_NOTIFICATION_NAME}"
+    # Suscripción de SQS para correos electrónicos con filtro de canal
+    QueueSendEmailSubs:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn:
+          Ref: TopicSendNotification
+        Endpoint:
+          Fn::GetAtt:
+            - QueueSendEmail
+            - Arn
+        Protocol: sqs
+        RawMessageDelivery: true
+        FilterPolicy:
+          channel:
+            - email # Solo los mensajes con "channel": "email" se enviarán a esta cola
+
+    # Suscripción de SQS para la base de datos de notificaciones de usuario con filtro de canal
+    QueueUserNotificationDBSubs:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn:
+          Ref: TopicSendNotification
+        Endpoint:
+          Fn::GetAtt:
+            - QueueUserNotificationDB
+            - Arn
+        Protocol: sqs
+        RawMessageDelivery: true
+        FilterPolicy:
+          channel:
+            - user_notification # Solo los mensajes con "channel": "user_notification" se enviarán a esta cola
+
+    # Suscripción de SQS para notificaciones push con filtro de canal
+    QueuePushNotificationSubs:
+      Type: AWS::SNS::Subscription
+      Properties:
+        TopicArn:
+          Ref: TopicSendNotification
+        Endpoint:
+          Fn::GetAtt:
+            - QueuePushNotification
+            - Arn
+        Protocol: sqs
+        RawMessageDelivery: true
+        FilterPolicy:
+          channel:
+            - push_notification # Solo los mensajes con "channel": "push_notification" se enviarán a esta cola
+
   Outputs:
     SQSSendEmailBusinessArn:
       Value:
@@ -504,3 +706,24 @@ resources:
         Fn::GetAtt:
           - QueueUsersChangeLocation
           - Arn
+
+      # Output para QueueSendEmail
+
+    # # Output para QueueUserNotificationDB
+    # QueueUserNotificationDBArn:
+    #   Value:
+    #     Fn::GetAtt:
+    #       - QueueUserNotificationDB
+    #       - Arn
+
+    # # Output para QueuePushNotification
+    # QueuePushNotificationArn:
+    #   Value:
+    #     Fn::GetAtt:
+    #       - QueuePushNotification
+    #       - Arn
+
+    # # Output para el TopicSendNotification (SNS Topic)
+    TopicSendNotificationArn:
+      Value:
+        Ref: TopicSendNotification

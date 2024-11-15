@@ -186,6 +186,8 @@ def handler(event, context):
         data["createdAt"] = date
         data["createdAt"] = date
         data["updatedAt"] = date
+        data["status"] = "ENABLED"
+        data["statusOwner"] = "OWNER"
         data["__typename"] = "Business"
         print("NEW DATA: ", data)
         # Serializar el objeto

@@ -77,6 +77,8 @@ def list_business_by_distance(location, user_id):
     lat = location["lat"]
     lon = location["lon"]
     query = {
+  "from": 0, 
+  "size": 100, 
   "_source": ["id", "thumbnail"],
   "query": {
     "bool": {
@@ -99,7 +101,7 @@ def list_business_by_distance(location, user_id):
                 }
               },
               {
-                "term": {
+                "match": {
                   "userID": f"{user_id}"
                 }
               }
@@ -114,7 +116,7 @@ def list_business_by_distance(location, user_id):
     
     
 
-
+    print("QUERY list_business_by_distance", query)
     # Elasticsearch 6.x requires an explicit Content-Type header
     headers = {"Content-Type": "application/json"}
 
@@ -189,7 +191,7 @@ def handler(event, context):
                 # Si no existe, agregar el negocio con su primera historia
                 business_obj = {
                     'id': business_id,
-                    'name': business_name,
+                    'name': f'{business_name[:5]}...',
                     'imgUrl': business_thumbnail,
                     'stories': [story],
                     "data": {
